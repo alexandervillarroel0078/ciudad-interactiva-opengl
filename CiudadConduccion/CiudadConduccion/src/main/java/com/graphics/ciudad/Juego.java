@@ -56,7 +56,7 @@ public class Juego {
     private final Decoracion decoracion = new Decoracion(shader, cubo, figuras); // Detalles urbanos de la ciudad terminada.
     private final Entorno entorno = new Entorno(cubo, figuras); // Campo que rodea la ciudad; no cambia límites ni colisiones.
     private final Cielo cielo = new Cielo(shader, cubo, figuras); // Fondo de la vista principal.
-    private final Sombras sombras = new Sombras(shader, cubo); // Sombras falsas de edificios, autos, árboles y bancos.
+    private final Sombras sombras = new Sombras(shader, cubo, figuras, cabina, ciudad.getEdificio()); // Manchas o sombra planar.
     private final Auto auto = new Auto(); // Vehículo del jugador; no necesita OpenGL para existir.
     private final Iluminacion iluminacion = new Iluminacion(shader, figuras); // Día/noche, farolas y faros.
     private final Entregas entregas = new Entregas(shader, cubo); // Destinos, progreso y cronómetro.
@@ -187,7 +187,7 @@ public class Juego {
         // círculo). Mientras Auto prueba, getX()/getZ() siguen siendo la posición de partida del cuadro.
         Colisiones.PosicionLibre libre = (nx, nz) -> Colisiones.puedeCircular(nx, nz)
             && !trafico.bloquea(auto.getX(), auto.getZ(), nx, nz, Auto.RADIO_AUTO);
-        auto.actualizar(deltaTime, teclado, libre); // Aceleración, giro y colisiones con deslizamiento por ejes.
+        auto.actualizar(deltaTime, teclado, libre, !iluminacion.esNoche()); // Aceleración, giro, colisiones y sombra solar, de día.
         trafico.actualizar(deltaTime, auto.getX(), auto.getZ()); // Mueve los vehículos; frenan si el jugador les cierra el carril.
         actualizarTitulo(); // Muestra los controles y la velocidad actual.
         entregas.actualizar(deltaTime, auto); // Añade el objetivo del juego al movimiento del auto.
@@ -214,10 +214,11 @@ public class Juego {
         int alto = ventana.alto(); // Alto actual del framebuffer en píxeles.
         glViewport(0, 0, ancho, alto); // Utiliza toda el área de la ventana para la escena principal.
         glClearColor(0.12f, 0.20f, 0.30f, 1); // Fondo de respaldo, azul oscuro opaco: en la vista principal lo cubre el cielo (Cielo).
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Borra la imagen y las distancias del cuadro anterior.
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Borra imagen, profundidad y el stencil de Sombras.
         shader.usar(); // Activa los shaders de esta etapa.
         shader.matriz3("uRotacion", Shader.IDENTIDAD_3X3); // Sin rotación extra: solo las ruedas la cambian (y la restauran).
         shader.decimal("uAlfa", 1); // Opacidad completa; solo la bajan Sombras y Cubo.cajaTranslucida() (y la restauran).
+        shader.decimal("uFactorSombraSol", 1); // Sol pleno; solo lo bajan Auto y Vehiculo bajo la sombra de un edificio (y lo restauran).
         shader.entero("uCielo", 0); // Material normal: solo Cielo activa el degradado (y lo apaga al terminar).
         shader.entero("uSombra", 0); // Material normal: solo Sombras activa las manchas (y las apaga al terminar).
         cubo.enlazar(); // Selecciona los atributos del cubo compartido.
@@ -317,8 +318,8 @@ public class Juego {
         if (entregas.quedanEntregas()) { // Dibuja un objetivo únicamente mientras queden entregas.
             entregas.dibujarDestino(minimapa.enVistaMapa()); // Coloca la marca dorada en la parada activa.
         }
-        if (!minimapa.enVistaMapa()) { // Desde arriba, en el minimapa, las manchas solo ensuciarían el plano.
-            sombras.dibujar(auto, trafico.getVehiculos(), iluminacion.esNoche()); // AL FINAL: la mezcla necesita el suelo ya pintado.
+        if (!minimapa.enVistaMapa()) { // Desde arriba, en el minimapa, las manchas (o la sombra planar) solo ensuciarían el plano.
+            sombras.dibujar(auto, trafico.getVehiculos(), iluminacion.esNoche(), iluminacion::dibujarFarolasConHuella); // AL FINAL: la mezcla necesita el suelo ya pintado.
         }
     }
 }

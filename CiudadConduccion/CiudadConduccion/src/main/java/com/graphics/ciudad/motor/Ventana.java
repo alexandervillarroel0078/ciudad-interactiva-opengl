@@ -42,6 +42,7 @@ public class Ventana {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3); // Solicita OpenGL 3.3.
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // Usa el perfil moderno basado en shaders.
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // Solicita compatibilidad con contextos modernos de macOS.
+        glfwWindowHint(GLFW_STENCIL_BITS, 8); // Framebuffer con stencil: Sombras.dibujarPlanares lo usa para no oscurecer dos veces donde se solapan.
         ventana = glfwCreateWindow(ancho, alto, titulo, 0, 0); // Crea una ventana normal.
         if (ventana == 0) { // GLFW devuelve cero cuando no consigue crear la ventana.
             throw new IllegalStateException("No se pudo crear la ventana OpenGL"); // Informa el fallo de creación.

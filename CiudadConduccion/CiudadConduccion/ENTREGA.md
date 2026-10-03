@@ -598,12 +598,13 @@ Pruebas en `src/test/java/com/graphics/ciudad`:
 | JUnit 3.8.1 | Pruebas automáticas (`mvn test`) |
 | Maven, con `maven-compiler-plugin` 3.13.0 y `exec-maven-plugin` 3.1.0 | Compilación, dependencias y ejecución |
 | JDK 17 | Lenguaje y máquina virtual |
+| Claude (chat) y Claude Code | Asistentes de IA usados para generar y revisar código, pruebas JUnit, el control de cámara con mouse y una auditoría contra el enunciado (ver "Herramientas de asistencia" más abajo) |
 
 No se usan texturas, imágenes, modelos 3D, archivos de fuentes ni sonidos externos. Toda la geometría y los colores se generan en el código.
 
 ### Herramientas de asistencia
 
-<!-- TODO: completar con las herramientas de asistencia usadas (por ejemplo, asistentes de IA o de código), para qué se usaron y en qué partes del proyecto. -->
+Se usó Claude (chat) y Claude Code como asistentes para generar y revisar código, escribir pruebas JUnit, implementar el control de cámara con mouse (orbital y aérea) y realizar una auditoría del proyecto contra el enunciado de la actividad. El autor revisó, entendió y adaptó cada cambio propuesto, y es capaz de explicar el funcionamiento del código entregado.
 
 ## 8. Cambios en vivo: qué tocar
 

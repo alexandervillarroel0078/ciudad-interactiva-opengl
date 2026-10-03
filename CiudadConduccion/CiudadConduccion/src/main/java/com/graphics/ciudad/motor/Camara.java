@@ -110,6 +110,14 @@ public class Camara {
     public static final int ITERACIONES_RECORTE = 10; // Mitades de la búsqueda binaria dentro del último paso.
     public static final float VELOCIDAD_ALEJAMIENTO = 12; // Unidades por segundo con que la cámara recupera su distancia.
 
+    // ==================== CAMPO VISUAL (valores ajustables) ====================
+    // ciudad.vert usa uCampoVisual para la perspectiva. SEGUIMIENTO y ORBITAL comparten el mismo valor de siempre;
+    // en AEREA, visto desde arriba, un campo visual grande exagera la perspectiva y las torres parecen inclinarse
+    // hacia los bordes de la pantalla (mientras más gran angular, más notorio). Con un campo visual más chico la
+    // vista aérea se acerca a una proyección casi ortográfica y los edificios se ven más rectos.
+    public static final float CAMPO_VISUAL = 55; // Grados verticales en SEGUIMIENTO y ORBITAL.
+    public static final float CAMPO_VISUAL_AEREO = 45; // Grados verticales en AEREA: menos gran angular, torres más rectas.
+
     // ==================== PLANO LEJANO (valores ajustables) ====================
     // ciudad.vert recorta lo que está más lejos que uPlanoLejano. Debe alcanzar la esquina opuesta de la ciudad con la
     // aérea alejada al máximo y el centro en una esquina: DISTANCIA_AEREA_MAX + diagonal, más un margen.
@@ -419,15 +427,15 @@ public class Camara {
     /** Elige entre la vista aérea, la orbital alrededor del auto y la cámara situada detrás del auto. */
     public void configurar(Shader shader, float autoX, float autoZ, float angulo, int ancho, int alto) {
         if (modo == Modo.AEREA) { // Vista general: órbita alrededor del centro aéreo, sobre el suelo.
-            enviar(shader, ojoAereo(), centroX, 0, centroZ, ancho, alto); // Órbita, sin entrar en los edificios.
+            enviar(shader, ojoAereo(), centroX, 0, centroZ, ancho, alto, CAMPO_VISUAL_AEREO); // Órbita, sin entrar en los edificios.
             return; // Evita reemplazarla con la cámara de seguimiento.
         }
         if (modo == Modo.ORBITAL) { // Órbita alrededor de la carrocería; θ relativo al ángulo del auto.
-            enviar(shader, orbitaAuto.ojo(autoX, ALTURA_OBJETIVO, autoZ, angulo), autoX, ALTURA_OBJETIVO, autoZ, ancho, alto);
+            enviar(shader, orbitaAuto.ojo(autoX, ALTURA_OBJETIVO, autoZ, angulo), autoX, ALTURA_OBJETIVO, autoZ, ancho, alto, CAMPO_VISUAL);
             return; // No sigue con la cámara de seguimiento.
         }
         float[] objetivo = objetivoSeguimiento(autoX, autoZ, angulo); // Por delante del auto.
-        enviar(shader, ojoSeguimiento(autoX, autoZ), objetivo[0], objetivo[1], objetivo[2], ancho, alto); // Hasta 8 detrás, mirando 11° hacia abajo.
+        enviar(shader, ojoSeguimiento(autoX, autoZ), objetivo[0], objetivo[1], objetivo[2], ancho, alto, CAMPO_VISUAL); // Hasta 8 detrás, mirando 11° hacia abajo.
     }
 
     /** Posición de la cámara calculada en el último configurar() (copia); Cielo centra la cúpula en ella. */
@@ -435,12 +443,13 @@ public class Camara {
         return ojo.clone(); // Copia: nadie puede mover la cámara desde afuera.
     }
 
-    /** Envía al shader la posición de la cámara (ojo), el punto que mira y la proporción de la ventana. */
-    private void enviar(Shader shader, float[] ojoNuevo, float objetivoX, float objetivoY, float objetivoZ, int ancho, int alto) {
+    /** Envía al shader la posición de la cámara (ojo), el punto que mira, la proporción de la ventana y el campo visual. */
+    private void enviar(Shader shader, float[] ojoNuevo, float objetivoX, float objetivoY, float objetivoZ, int ancho, int alto, float campoVisual) {
         System.arraycopy(ojoNuevo, 0, ojo, 0, 3); // Recuerda el ojo para getOjo().
         shader.vector("uOjo", ojo[0], ojo[1], ojo[2]); // Posición de la cámara.
         shader.vector("uObjetivo", objetivoX, objetivoY, objetivoZ); // Punto al que mira.
         shader.decimal("uAspecto", (float) ancho / alto); // Mantiene las proporciones al redimensionar la ventana.
         shader.decimal("uPlanoLejano", getPlanoLejano()); // Distancia máxima visible, según el tamaño de la ciudad.
+        shader.decimal("uCampoVisual", campoVisual); // Grados verticales de la perspectiva: menor en AEREA.
     }
 }

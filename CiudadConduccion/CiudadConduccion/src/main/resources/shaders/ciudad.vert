@@ -15,14 +15,18 @@ uniform float uAspecto; // Recibe la relación ancho/alto de la imagen.
 uniform int uMapa; // Selecciona perspectiva (0) o vista superior ortográfica (1).
 uniform float uPlanoLejano; // Distancia máxima visible: la calcula Camara.getPlanoLejano() a partir de Mapa.LIMITE.
 uniform float uMitadMapa; // Media anchura visible del minimapa: Mapa.LIMITE más un margen (antes fijo en 37).
+uniform float uCampoVisual; // Campo visual vertical de la cámara, en grados: lo elige Camara según el modo (menor en AEREA).
+uniform int uSombraPlanar; // 1 mientras Sombras dibuja la sombra planar del sol (Sombras.dibujarPlanares, solo de día).
+uniform vec3 uDireccionSol; // Hacia dónde está el sol de día (Sombras.DIRECCION_SOL_DIA, igual que iluminacion.frag).
+uniform float uAlturaPlanoSombra; // Altura del piso al que se proyecta: calle (0), acera o césped del parque (Sombras.dibujarPlanares).
 out vec3 vMundo; // Envía la posición mundial al shader de fragmentos.
 out vec3 vNormal; // Envía la normal transformada para la iluminación de iluminacion.frag.
 out vec3 vLocal; // Posición del vértice dentro de la figura unitaria (-0.5 a 0.5): la usa la sombra falsa para su degradado.
 
 // ==================== CONSTANTES DE PROYECCIÓN (valores ajustables) ====================
-const float CAMPO_VISUAL = 55.0; // Campo visual vertical de la cámara, en grados: más grande = más gran angular.
 const float PLANO_CERCANO = 0.1; // Distancia mínima visible; lo que esté más cerca de la cámara se recorta.
 const float ESCALA_ALTURA_MAPA = 100.0; // En el minimapa, divide la altura para ordenar la profundidad (lo alto tapa lo bajo).
+const float ELEVACION_SOMBRA_PLANAR = 0.01; // La sombra planar queda apenas sobre el suelo: evita z-fighting con él.
 
 void main() { // OpenGL ejecuta este bloque una vez por vértice.
     float coseno = cos(uGiro); // Calcula el coseno del giro del objeto.
@@ -44,6 +48,10 @@ void main() { // OpenGL ejecuta este bloque una vez por vértice.
         float profundidad = -vMundo.y / ESCALA_ALTURA_MAPA; // Hace que los objetos más altos se vean por encima.
         gl_Position = vec4(pantallaX, pantallaY, profundidad, 1.0); // Proyecta sin reducir objetos lejanos.
     } else { // La escena principal utiliza una cámara con perspectiva.
+        if (uSombraPlanar == 1) { // Sombra planar: aplasta el vértice hacia el piso que le toque (calle, acera o parque) siguiendo al sol.
+            float t = (vMundo.y - uAlturaPlanoSombra) / uDireccionSol.y; // Cuánto hay que avanzar hacia el sol para tocar ESE piso (uDireccionSol.y > 0: nunca bajo el horizonte).
+            vMundo = vec3(vMundo.x - uDireccionSol.x * t, uAlturaPlanoSombra + ELEVACION_SOMBRA_PLANAR, vMundo.z - uDireccionSol.z * t); // Mismo punto, proyectado sobre ese piso.
+        }
         vec3 frente = normalize(uObjetivo - uOjo); // Calcula la dirección hacia la que mira la cámara.
         vec3 derecha = normalize(cross(frente, vec3(0.0, 1.0, 0.0))); // Obtiene el eje horizontal de la cámara.
         vec3 arriba = cross(derecha, frente); // Obtiene el eje vertical perpendicular a los otros dos.
@@ -51,7 +59,7 @@ void main() { // OpenGL ejecuta este bloque una vez por vértice.
         float vistaX = dot(diferencia, derecha); // Mide cuánto está el vértice a la derecha de la cámara.
         float vistaY = dot(diferencia, arriba); // Mide cuánto está el vértice encima de la cámara.
         float vistaZ = -dot(diferencia, frente); // Usa Z negativa delante de la cámara, como espera OpenGL.
-        float factor = 1.0 / tan(radians(CAMPO_VISUAL) * 0.5); // Convierte el campo visual de 55 grados en escala de perspectiva.
+        float factor = 1.0 / tan(radians(uCampoVisual) * 0.5); // Convierte el campo visual (Camara.CAMPO_VISUAL/_AEREO) en escala de perspectiva.
         float cerca = PLANO_CERCANO; // Define la distancia mínima visible.
         float lejos = uPlanoLejano; // Define la distancia máxima visible (≈ 319 con la ciudad 11 × 11).
         float clipX = vistaX * factor / uAspecto; // Corrige la coordenada horizontal según el ancho de la pantalla.

@@ -1,5 +1,6 @@
 package com.graphics.ciudad.vehiculo; // Agrupa el vehículo del jugador y sus colisiones.
 
+import com.graphics.ciudad.iluminacion.Sombras; // Sombra de los edificios sobre el auto: objetivo y suavizado del factor solar.
 import com.graphics.ciudad.motor.Cubo; // Dibuja cada pieza del vehículo.
 import com.graphics.ciudad.motor.Figuras; // Cilindros de las ruedas (los dibuja Rueda).
 import com.graphics.ciudad.motor.Shader; // Emisión de las luces de freno y reversa, y rotación de las ruedas (uRotacion).
@@ -61,6 +62,7 @@ public class Auto {
     float anguloDireccion = 0; // Giro de las ruedas delanteras respecto del auto, en radianes (positivo = hacia la izquierda).
     boolean frenando = false; // true mientras se frena: S con el auto yendo hacia adelante, o Espacio.
     boolean enReversa = false; // true mientras el auto se mueve hacia atrás.
+    float factorSombraSol = 1f; // 1 = sol pleno; baja hacia Sombras.FACTOR_SOMBRA_SOL bajo la sombra de un edificio (suavizado en actualizar()).
 
     // ==================== 2. REINICIO ====================
 
@@ -74,18 +76,20 @@ public class Auto {
         anguloDireccion = 0; // Ruedas delanteras derechas.
         frenando = false; // Sin luces de freno.
         enReversa = false; // Sin luz de reversa.
+        factorSombraSol = 1f; // Vuelve a sol pleno: la posición de salida no está bajo ningún edificio.
     }
 
     // ==================== 3. MOVIMIENTO POR CUADRO ====================
 
     /** Actualiza la conducción chocando solo contra manzanas y bordes (sin tráfico); la usan las pruebas. */
     public void actualizar(float deltaTime, IntPredicate pulsada) {
-        actualizar(deltaTime, pulsada, Colisiones::puedeCircular); // Misma física, con la ciudad como único obstáculo.
+        actualizar(deltaTime, pulsada, Colisiones::puedeCircular, true); // Misma física, con la ciudad como único obstáculo, de día.
     }
 
     /**
      * Actualiza la conducción; deltaTime contiene los segundos transcurridos entre cuadros y libre dice si el auto
-     * cabe en una posición (Juego combina manzanas, bordes y tráfico).
+     * cabe en una posición (Juego combina manzanas, bordes y tráfico). esDeDia habilita la sombra de los edificios
+     * sobre el auto (Sombras.objetivoFactorSombraSol): de noche no tiene efecto.
      *
      * DESLIZAMIENTO POR EJES. Si el paso completo (dx, dz) choca, no se descarta entero: se prueba cada eje por
      * separado, primero el de mayor desplazamiento. Una pared de la ciudad es paralela a X o a Z, así que cuando el
@@ -104,7 +108,7 @@ public class Auto {
      * depende: en un segundo la suma de los dt es 1 con cualquier FPS, así que siempre se pierde FRICCION_ROCE · fracción
      * por segundo (la resistencia de arriba también es independiente: e^(−k·dt) repetido da e^(−k·1) en un segundo).
      */
-    public void actualizar(float deltaTime, IntPredicate pulsada, Colisiones.PosicionLibre libre) {
+    public void actualizar(float deltaTime, IntPredicate pulsada, Colisiones.PosicionLibre libre, boolean esDeDia) {
         float velocidadAntes = velocidad; // Velocidad al empezar el cuadro: decide si S frena o acelera en reversa.
         float acelerador = 0; // Sin teclas pulsadas no se aplica aceleración del motor.
         boolean teclaAtras = pulsada.test(GLFW_KEY_S) || pulsada.test(GLFW_KEY_DOWN); // S o flecha abajo.
@@ -184,6 +188,9 @@ public class Auto {
         // frenar). Sin la segunda parte, al empujar marcha atrás contra una pared la velocidad pasa de −0.15 a 0 en
         // cuadros alternados y la luz parpadearía.
         enReversa = velocidad < -UMBRAL_MOVIMIENTO || (teclaAtras && velocidadAntes <= UMBRAL_MOVIMIENTO);
+
+        float objetivoSombra = Sombras.objetivoFactorSombraSol(x, z, esDeDia); // 1, o FACTOR_SOMBRA_SOL bajo un edificio.
+        factorSombraSol = Sombras.suavizarFactorSombraSol(factorSombraSol, objetivoSombra, deltaTime); // Sin saltos al entrar o salir.
     }
 
     // ==================== 4. DIBUJO DEL AUTO ====================
@@ -193,6 +200,7 @@ public class Auto {
      * farosEncendidos es el estado de la tecla F, leído de Iluminacion por Juego.
      */
     public void dibujar(Cubo cubo, Figuras figuras, Shader shader, Cabina cabina, boolean farosEncendidos) {
+        shader.decimal("uFactorSombraSol", factorSombraSol); // Baja solo la luz direccional del sol si está bajo un edificio.
         float[] c = COLOR_CARROCERIA; // Color del auto.
         pieza(cubo, 0, 0.65f, 0, 1.65f, 0.55f, 2.6f, c[0], c[1], c[2]); // Dibuja la carrocería roja.
         cabina.dibujar(x, z, angulo, c[0], c[1], c[2]); // Cabina trapezoidal del color del auto, con vidrios (antes un bloque celeste).
@@ -214,6 +222,7 @@ public class Auto {
             pieza(cubo, ladoX * 0.4f, y, LucesVehiculo.TRASERA_LUZ + 0.01f, 0.16f, 0.12f, 0.06f, reversa[0], reversa[1], reversa[2]); // Luz de reversa, hacia el centro.
         }
         shader.entero("uEmision", 0); // Restablece el material normal para el siguiente objeto.
+        shader.decimal("uFactorSombraSol", 1); // Vuelve a sol pleno para el siguiente objeto.
     }
 
     /** Transforma una pieza del espacio local del auto al espacio de la ciudad. */
@@ -255,6 +264,11 @@ public class Auto {
     /** Indica si el auto va hacia atrás (luz de reversa encendida). */
     public boolean enReversa() {
         return enReversa; // Estado calculado en actualizar().
+    }
+
+    /** Factor de luz solar directa actual: 1 con sol pleno, más bajo bajo la sombra de un edificio (ya suavizado). */
+    public float getFactorSombraSol() {
+        return factorSombraSol; // Estado calculado en actualizar().
     }
 
     /** Ángulo girado por las ruedas sobre su eje, en radianes. */

@@ -1,5 +1,6 @@
 package com.graphics.ciudad.trafico; // Agrupa el tráfico autónomo: vehículos y sus rutas.
 
+import com.graphics.ciudad.iluminacion.Sombras; // Sombra de los edificios sobre el vehículo: objetivo y suavizado del factor solar.
 import com.graphics.ciudad.mundo.Mapa; // Aporta el ancho de la calle para calcular el carril.
 import com.graphics.ciudad.motor.Cubo; // Dibuja cada pieza del vehículo.
 import com.graphics.ciudad.motor.Figuras; // Cilindros de las ruedas (los dibuja Rueda).
@@ -80,6 +81,7 @@ public class Vehiculo {
     boolean frenando; // true mientras la velocidad baja (o espera detenido ante un obstáculo): luces de freno.
     float anguloRueda; // Cuánto giró cada rueda sobre su eje, en radianes (crece al avanzar).
     float anguloDireccion; // Giro de las ruedas delanteras respecto del vehículo (positivo = izquierda).
+    float factorSombraSol = 1f; // 1 = sol pleno; baja hacia Sombras.FACTOR_SOMBRA_SOL bajo la sombra de un edificio (suavizado en actualizar()).
 
     /** Crea el vehículo con su ruta, su velocidad de crucero y su color, y lo coloca al inicio de la ruta. */
     public Vehiculo(float[][] ruta, float velocidadCrucero, float rojo, float verde, float azul, BooleanSupplier esNoche) {
@@ -145,6 +147,7 @@ public class Vehiculo {
         frenando = false; // Sin luces de freno.
         anguloRueda = 0; // Ruedas en su posición inicial.
         anguloDireccion = 0; // Delanteras derechas.
+        factorSombraSol = 1f; // Vuelve a sol pleno: el primer waypoint no está bajo ningún edificio.
     }
 
     // ==================== 3. MOVIMIENTO POR CUADRO ====================
@@ -216,6 +219,9 @@ public class Vehiculo {
             float objetivoDireccion = direccionPorGiro(giro / deltaTime, velocidad); // Según el giro actual.
             anguloDireccion = Rueda.acercarDireccion(anguloDireccion, objetivoDireccion, deltaTime); // Tope ±30°.
         }
+
+        float objetivoSombra = Sombras.objetivoFactorSombraSol(x, z, !esNoche.getAsBoolean()); // 1, o FACTOR_SOMBRA_SOL bajo un edificio.
+        factorSombraSol = Sombras.suavizarFactorSombraSol(factorSombraSol, objetivoSombra, deltaTime); // Sin saltos al entrar o salir.
     }
 
     /**
@@ -328,6 +334,11 @@ public class Vehiculo {
         return esNoche.getAsBoolean(); // Lee el estado actual de Iluminacion en cada consulta.
     }
 
+    /** Factor de luz solar directa actual: 1 con sol pleno, más bajo bajo la sombra de un edificio (ya suavizado). */
+    public float getFactorSombraSol() {
+        return factorSombraSol; // Estado calculado en actualizar().
+    }
+
     /** Posición en el mundo {x, y, z} del faro izquierdo (lado 0) o derecho (lado 1): origen de su foco. */
     public float[] posicionFaro(int lado) {
         float localX = lado == 0 ? -LADO_LUZ : LADO_LUZ; // Izquierda o derecha en coordenadas locales.
@@ -340,6 +351,7 @@ public class Vehiculo {
 
     /** Construye el vehículo en el mismo estilo que Auto (carrocería, cabina, ruedas redondas y luces), con su color. */
     public void dibujar(Cubo cubo, Figuras figuras, Shader shader, Cabina cabina) {
+        shader.decimal("uFactorSombraSol", factorSombraSol); // Baja solo la luz direccional del sol si está bajo un edificio.
         pieza(cubo, 0, 0.65f, 0, 1.65f, 0.55f, 2.6f, rojo, verde, azul); // Dibuja la carrocería con el color del vehículo.
         cabina.dibujar(x, z, angulo, rojo, verde, azul); // La misma cabina que el jugador, con el color de este vehículo.
         Rueda.dibujarCuatro(cubo, figuras, shader, x, z, angulo, anguloRueda, anguloDireccion); // Las mismas ruedas que el jugador.
@@ -356,6 +368,7 @@ public class Vehiculo {
             pieza(cubo, ladoX, ALTURA_LUZ, TRASERA_LUZ, tt[0], tt[1], tt[2], trasera[0], trasera[1], trasera[2]); // Dibuja una luz trasera roja.
         }
         shader.entero("uEmision", 0); // Restablece el material normal para el siguiente objeto.
+        shader.decimal("uFactorSombraSol", 1); // Vuelve a sol pleno para el siguiente objeto.
     }
 
     /** Transforma una pieza del espacio local del vehículo al espacio de la ciudad (igual que Auto.pieza). */

@@ -421,19 +421,42 @@ public class Iluminacion {
     /** Dibuja cada farola pieza por pieza; la bombilla está en la misma posición usada para calcular la luz. */
     public void dibujarFarolas() {
         for (int i = 0; i < LUCES.length; i++) { // Selecciona una farola a la vez.
-            for (Pieza p : modeloFarola(i, noche)) { // Recorre sus piezas.
-                Malla malla = figuras.cilindro; // Figura de la pieza: cilindro por defecto...
-                if (p.forma == Forma.ESFERA) {
-                    malla = figuras.esfera; // ...esfera para codos y bombilla...
-                } else if (p.forma == Forma.CONO) {
-                    malla = figuras.cono; // ...cono para la pantalla.
-                }
-                shader.matriz3("uRotacion", p.rotacion); // Inclina los tramos del brazo; identidad para lo demás.
-                shader.entero("uEmision", p.emisiva ? 1 : 0); // Solo la bombilla de noche ignora la iluminación.
-                malla.dibujar(p.x, p.y, p.z, p.sx, p.sy, p.sz, p.color[0], p.color[1], p.color[2]); // Envía la pieza.
-            }
+            dibujarFarolaPiezas(i);
         }
         shader.matriz3("uRotacion", Shader.IDENTIDAD_3X3); // Restablece la rotación para el siguiente objeto.
         shader.entero("uEmision", 0); // Restablece el material normal para el siguiente objeto.
+    }
+
+    /**
+     * Para la sombra planar (Sombras.dibujarPlanares): dibuja cada farola restringida a la huella de SU PROPIA
+     * manzana (Sombras.manzana, la misma celda {fila, columna} de LUCES[i]), con el modo recibido (Sombras.HUELLA_DENTRO
+     * en el pase de acera, Sombras.HUELLA_FUERA en el de calle). El poste de una farola se apoya en la acera, pero el
+     * brazo y la bombilla sobresalen hacia la calle: sin esta restricción, la copia aplastada a nivel acera "flotaría"
+     * sobre la calzada, igual que le pasaba a los edificios (ver el comentario de Sombras).
+     */
+    public void dibujarFarolasConHuella(int modoHuella) {
+        for (int i = 0; i < LUCES.length; i++) {
+            float[] r = Sombras.manzana(LUCES[i][0], LUCES[i][1]); // Manzana donde está plantado el poste de esta farola.
+            Sombras.aplicarHuella(shader, modoHuella, r[0], r[1], r[2], r[3]);
+            dibujarFarolaPiezas(i);
+        }
+        Sombras.aplicarHuella(shader, Sombras.HUELLA_SIN_FILTRO, 0, 0, 0, 0); // No deja el filtro puesto para el siguiente objeto.
+        shader.matriz3("uRotacion", Shader.IDENTIDAD_3X3); // Restablece la rotación para el siguiente objeto.
+        shader.entero("uEmision", 0); // Restablece el material normal para el siguiente objeto.
+    }
+
+    /** Piezas de la farola i, ya ubicadas en el mundo: lo comparten dibujarFarolas() y dibujarFarolasConHuella(). */
+    private void dibujarFarolaPiezas(int i) {
+        for (Pieza p : modeloFarola(i, noche)) { // Recorre sus piezas.
+            Malla malla = figuras.cilindro; // Figura de la pieza: cilindro por defecto...
+            if (p.forma == Forma.ESFERA) {
+                malla = figuras.esfera; // ...esfera para codos y bombilla...
+            } else if (p.forma == Forma.CONO) {
+                malla = figuras.cono; // ...cono para la pantalla.
+            }
+            shader.matriz3("uRotacion", p.rotacion); // Inclina los tramos del brazo; identidad para lo demás.
+            shader.entero("uEmision", p.emisiva ? 1 : 0); // Solo la bombilla de noche ignora la iluminación.
+            malla.dibujar(p.x, p.y, p.z, p.sx, p.sy, p.sz, p.color[0], p.color[1], p.color[2]); // Envía la pieza.
+        }
     }
 }

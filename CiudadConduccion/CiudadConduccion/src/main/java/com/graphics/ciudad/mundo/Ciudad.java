@@ -23,6 +23,11 @@ public class Ciudad {
         this.edificio = new Edificio(cubo, figuras); // Calcula una vez la forma de todos los edificios.
     }
 
+    /** El edificio de cada manzana; Sombras lo reutiliza para proyectar su sombra planar con la misma geometría. */
+    public Edificio getEdificio() {
+        return edificio;
+    }
+
     // ==================== CIUDAD A PARTIR DE UNA MATRIZ ====================
 
     /** Recorre el mapa y transforma cada celda en geometría. */
