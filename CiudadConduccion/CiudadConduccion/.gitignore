@@ -5,3 +5,11 @@ __MACOSX/
 .idea/
 .vscode/
 CiudadConduccion_entrega.zip
+
+*.tmp
+*.log
+*.bak
+*.swp
+CiudadConduccion_entrega.zip
+entregar.ps1
+docs/DEFENSA.md

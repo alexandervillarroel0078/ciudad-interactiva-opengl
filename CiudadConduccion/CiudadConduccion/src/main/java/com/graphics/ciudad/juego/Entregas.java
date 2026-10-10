@@ -55,6 +55,22 @@ public class Entregas {
     public Entregas(Shader shader, Cubo cubo) {
         this.shader = shader; // Guarda el programa para cambiar uEmision.
         this.cubo = cubo; // Guarda la geometría compartida.
+        validarDestinos(); // Falla al arrancar si un destino no es calle o queda aislado.
+    }
+
+    /** Comprueba con BFS desde la salida del auto que cada celda de CELDAS_DESTINOS es calle y alcanzable. */
+    static void validarDestinos() {
+        boolean[][] alcanzada = Mapa.alcanzables(Mapa.indiceCelda(Auto.Z_INICIAL), Mapa.indiceCelda(Auto.X_INICIAL));
+        for (int i = 0; i < CELDAS_DESTINOS.length; i++) { // Revisa cada parada.
+            int fila = CELDAS_DESTINOS[i][0];
+            int columna = CELDAS_DESTINOS[i][1];
+            if (!Mapa.esCalleSegura(fila, columna)) {
+                throw new IllegalStateException("Destino " + i + " (" + NOMBRES_DESTINOS[i] + ") en la celda " + fila + "," + columna + " no es una calle");
+            }
+            if (!alcanzada[fila][columna]) {
+                throw new IllegalStateException("Destino " + i + " (" + NOMBRES_DESTINOS[i] + ") en la celda " + fila + "," + columna + " no es alcanzable desde la salida del auto");
+            }
+        }
     }
 
     // ==================== 2. REINICIO ====================

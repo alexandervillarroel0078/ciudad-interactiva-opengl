@@ -20,7 +20,7 @@ public class MapaTest extends TestCase {
         for (int[] fila : Mapa.MAPA) { // Revisa cada fila de la matriz.
             assertEquals(Mapa.MAPA.length, fila.length); // Mapa cuadrado, como supone TAMANO.
         }
-        assertEquals(10f, Mapa.TAM_CELDA, 0f); // Mismo tamaño de celda que la ciudad original 7 × 7 (límite 35 = 7 · 10 / 2).
+        assertEquals(Mapa.TAM_CELDA_ORIGINAL, Mapa.TAM_CELDA, 0f); // Mismo tamaño de celda que la ciudad original 7 × 7 (límite 35 = 7 · 10 / 2).
     }
 
     /** La salida está sobre la calle, a mitad de cuadra en el carril derecho: ni en un cruce ni sobre un paso peatonal. */
@@ -66,21 +66,7 @@ public class MapaTest extends TestCase {
         int filaInicio = Mapa.indiceCelda(Auto.Z_INICIAL); // Las filas avanzan en Z.
         int columnaInicio = Mapa.indiceCelda(Auto.X_INICIAL); // Las columnas avanzan en X.
         assertTrue(Mapa.esCalleSegura(filaInicio, columnaInicio)); // El recorrido debe partir de una calle.
-        boolean[][] alcanzada = new boolean[Mapa.MAPA.length][Mapa.MAPA[0].length]; // Calles a las que se llega desde el inicio.
-        ArrayDeque<int[]> pendientes = new ArrayDeque<>(); // Cola del BFS.
-        alcanzada[filaInicio][columnaInicio] = true; // Marca el origen.
-        pendientes.add(new int[] {filaInicio, columnaInicio}); // Lo coloca en la cola.
-        while (!pendientes.isEmpty()) { // Continúa mientras queden celdas por expandir.
-            int[] actual = pendientes.poll(); // Toma la celda más antigua.
-            for (int[] paso : Mapa.VECINOS) { // Norte, sur, oeste y este.
-                int fila = actual[0] + paso[0]; // Fila del vecino.
-                int columna = actual[1] + paso[1]; // Columna del vecino.
-                if (Mapa.esCalleSegura(fila, columna) && !alcanzada[fila][columna]) { // Solo calles nuevas dentro del mapa.
-                    alcanzada[fila][columna] = true; // Marca el vecino.
-                    pendientes.add(new int[] {fila, columna}); // Lo agrega a la cola.
-                }
-            }
-        }
+        boolean[][] alcanzada = Mapa.alcanzables(filaInicio, columnaInicio); // BFS de Mapa.
         for (float[] destino : Entregas.DESTINOS) { // Revisa cada parada.
             int fila = Mapa.indiceCelda(destino[1]); // Z → fila.
             int columna = Mapa.indiceCelda(destino[0]); // X → columna.

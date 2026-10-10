@@ -1,5 +1,6 @@
 package com.graphics.ciudad.mundo; // Agrupa lo que forma la ciudad: mapa, edificios, decoración y semáforos.
 
+import java.util.ArrayDeque; // Cola del recorrido en anchura (BFS).
 import java.util.ArrayList; // Listas de intersecciones, accesos y parques.
 import java.util.List; // Tipo de esas listas.
 
@@ -61,7 +62,8 @@ public final class Mapa {
         }
     }
 
-    public static final float TAM_CELDA = 10; // Ancho y profundidad de cada celda del mapa.
+    public static final float TAM_CELDA_ORIGINAL = 10; // Tamaño de celda del mapa original 7x7.
+    public static final float TAM_CELDA = TAM_CELDA_ORIGINAL; // Ancho y profundidad de cada celda del mapa.
     public static final float TAMANO = MAPA.length * TAM_CELDA; // Lado completo de la ciudad: 11 celdas × 10 = 110 unidades.
     public static final float LIMITE = TAMANO / 2; // Distancia del origen a cada borde: el mapa mide 110 unidades, el límite es 55.
     public static final float ANCHO_EDIFICIO = 7; // Ancho y profundidad de la base de cada edificio dentro de su manzana de 10.
@@ -211,6 +213,29 @@ public final class Mapa {
             }
         }
         return lista; // Accesos de la intersección.
+    }
+
+    /** Recorrido en anchura (BFS) por calles desde (fila, columna): marca cada celda de calle alcanzable. */
+    public static boolean[][] alcanzables(int fila, int columna) {
+        boolean[][] alcanzada = new boolean[MAPA.length][MAPA[0].length]; // Calles a las que se llega desde el origen.
+        if (!esCalleSegura(fila, columna)) { // Un origen que no es calle no alcanza nada.
+            return alcanzada;
+        }
+        ArrayDeque<int[]> pendientes = new ArrayDeque<>(); // Cola del BFS.
+        alcanzada[fila][columna] = true; // Marca el origen.
+        pendientes.add(new int[] {fila, columna});
+        while (!pendientes.isEmpty()) { // Continúa mientras queden celdas por expandir.
+            int[] actual = pendientes.poll(); // Toma la celda más antigua.
+            for (int[] paso : VECINOS) { // Norte, sur, oeste y este.
+                int f = actual[0] + paso[0]; // Fila del vecino.
+                int c = actual[1] + paso[1]; // Columna del vecino.
+                if (esCalleSegura(f, c) && !alcanzada[f][c]) { // Solo calles nuevas dentro del mapa.
+                    alcanzada[f][c] = true;
+                    pendientes.add(new int[] {f, c});
+                }
+            }
+        }
+        return alcanzada;
     }
 
     /** Lista las celdas de parque como {fila, columna}. */
