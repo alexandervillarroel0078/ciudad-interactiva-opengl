@@ -13,7 +13,7 @@ Ver también la documentación de diseño en [ENTREGA.md](CiudadConduccion/Ciuda
 ## Ejecutar
 
 ```
-cd CiudadConduccion/CiudadConduccion
+cd C:\xampp\htdocs\ProgramacionGrafica\CiudadConduccion\CiudadConduccion
 mvn compile exec:exec
 ```
 
