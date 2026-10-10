@@ -33,6 +33,7 @@ public class Hud {
         "   Shift = desplazar (aerea)",
         "   ruedita = acercar / alejar",
         "N: dia / noche     F: faros",
+        "+ / -: niebla",
         "M: minimapa        H: esta ayuda",
         "P: pausa           R: reiniciar",
         "ESC: salir"

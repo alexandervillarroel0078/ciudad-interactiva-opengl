@@ -44,6 +44,11 @@ public class Iluminacion {
     private boolean faros = true; // Inicia los focos del auto encendidos.
     public static final float DURACION_TRANSICION = 2.0f; // Segundos que tarda el cielo en pasar de día a noche (y al revés).
     public static final float ELEVACION_SOL_NOCHE = (float) Math.toRadians(-12); // Hasta dónde baja el sol visual: bajo el horizonte.
+    // Niebla exponencial: visibilidad = exp(-distancia · densidad). Teclas + y - cambian la densidad.
+    public static final float DENSIDAD_NIEBLA_INICIAL = 0.004f; // A 100 de distancia se ve el 67 % del color real.
+    public static final float DENSIDAD_NIEBLA_MAX = 0.03f; // Muy espesa: a 100 de distancia queda el 5 %.
+    public static final float PASO_DENSIDAD_NIEBLA = 0.001f; // Lo que suma o resta cada pulsación.
+    private float densidadNiebla = DENSIDAD_NIEBLA_INICIAL; // 0 = sin niebla.
     private float factorNoche = NOCHE_AL_INICIAR ? 1 : 0; // 0 = día, 1 = noche: lo comparten el cielo, la luz de la ciudad (uFactorNoche) y las sombras.
     public static final int MAX_LUCES = 16; // Tamaño del arreglo uLuces[16] del shader: no se pueden enviar más farolas.
     public static final int MAX_GLOBOS = 16; // Tamaño de uGlobos[16]: luces PUNTUALES de las luminarias de parque (Parque.LUMINARIAS).
@@ -257,6 +262,12 @@ public class Iluminacion {
         if (key == GLFW_KEY_N) { // Comprueba la tecla de cambio de ambiente.
             noche = !noche; // Alterna entre noche y día.
         }
+        if (key == GLFW_KEY_EQUAL || key == GLFW_KEY_KP_ADD) { // "+" (en el teclado principal es Shift y "=": la tecla es "=").
+            densidadNiebla = Math.min(DENSIDAD_NIEBLA_MAX, densidadNiebla + PASO_DENSIDAD_NIEBLA);
+        }
+        if (key == GLFW_KEY_MINUS || key == GLFW_KEY_KP_SUBTRACT) { // "-".
+            densidadNiebla = Math.max(0, densidadNiebla - PASO_DENSIDAD_NIEBLA);
+        }
         if (key == GLFW_KEY_F) { // Comprueba el interruptor de los focos del auto.
             faros = !faros; // Enciende los faros si estaban apagados y viceversa.
         }
@@ -279,6 +290,16 @@ public class Iluminacion {
      */
     public boolean esNocheVisual() {
         return factorNoche >= 0.5f;
+    }
+
+    /** Densidad actual de la niebla (teclas + y -). */
+    public float densidadNiebla() {
+        return densidadNiebla;
+    }
+
+    /** Color de la niebla: el del horizonte del cielo en este momento (día, atardecer o noche, según la transición). */
+    public float[] colorNiebla() {
+        return Cielo.colorHorizonte(direccionSol()[1], factorNoche);
     }
 
     /** Transición del cielo: 0 = día pleno, 1 = noche plena (cielo.frag la usa para mezclar colores y encender estrellas). */
@@ -328,6 +349,9 @@ public class Iluminacion {
 
     /** Actualiza los uniforms de iluminación antes de dibujar la ciudad. */
     public void preparar(Auto auto) {
+        float[] niebla = colorNiebla();
+        shader.vector("uColorNiebla", niebla[0], niebla[1], niebla[2]); // Igual al horizonte de cielo.frag.
+        shader.decimal("uDensidadNiebla", densidadNiebla); // 0 = sin niebla.
         shader.decimal("uFactorNoche", factorNoche); // 0 = ambiente y sol de día, 1 = de noche; el shader hace mix entre ambos (misma transición que el cielo).
         shader.entero("uFaros", 0); // Inicialmente desactiva los conos de luz del auto.
         if (faros) { // Revisa el interruptor de los faros.

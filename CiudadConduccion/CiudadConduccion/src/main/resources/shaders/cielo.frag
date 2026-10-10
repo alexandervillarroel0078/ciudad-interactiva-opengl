@@ -10,15 +10,15 @@ uniform vec3 uDireccionSol; // Dirección unitaria hacia el sol (Iluminacion.dir
 uniform vec3 uDireccionLuna; // Dirección unitaria hacia la luna (Cielo.direccionLuna).
 uniform float uFactorNoche; // 0 = día pleno, 1 = noche plena; cambia suavemente al pulsar N (Iluminacion.factorNoche).
 uniform float uTiempo; // Segundos de juego: parpadeo de estrellas y movimiento de nubes.
+uniform vec3 uHorizonteDia; // Colores del horizonte, enviados por Cielo (Cielo.HORIZONTE_*): son también el color de la niebla.
+uniform vec3 uHorizonteAtardecer;
+uniform vec3 uHorizonteNoche;
 out vec4 color; // Color RGBA final.
 
 // ==================== CONSTANTES (valores ajustables) ====================
 const vec3 CENIT_DIA = vec3(0.16, 0.38, 0.82); // Día, arriba: azul intenso.
-const vec3 HORIZONTE_DIA = vec3(0.72, 0.86, 0.97); // Día, horizonte: celeste claro.
 const vec3 CENIT_ATARDECER = vec3(0.22, 0.27, 0.55); // Atardecer, arriba: azul violáceo.
-const vec3 HORIZONTE_ATARDECER = vec3(0.98, 0.52, 0.24); // Atardecer, horizonte: naranja.
 const vec3 CENIT_NOCHE = vec3(0.01, 0.015, 0.05); // Noche, arriba: azul casi negro.
-const vec3 HORIZONTE_NOCHE = vec3(0.06, 0.09, 0.22); // Noche, horizonte: azul noche.
 const float CURVA_CIELO = 0.6; // < 1: el azul intenso llega rápido y el celeste queda cerca del horizonte.
 const vec3 COLOR_SOL = vec3(1.0, 0.93, 0.75); // Disco solar de día.
 const vec3 COLOR_SOL_ATARDECER = vec3(1.0, 0.55, 0.25); // Disco solar cerca del horizonte.
@@ -92,6 +92,7 @@ void main() {
     vec3 luna = normalize(uDireccionLuna);
 
     // ---- Pesos de día / atardecer / noche: dependen de la altura del sol y del factor de noche ----
+    // (Misma fórmula que Cielo.pesos en Java, que Iluminacion usa para el color de la niebla.)
     float dia = smoothstep(0.35, 0.7, sol.y); // Sol alto.
     float noche = max(1.0 - smoothstep(-0.2, 0.1, sol.y), smoothstep(0.85, 1.0, uFactorNoche)); // Sol bajo el horizonte.
     float atardecer = max(1.0 - dia - noche, 0.0); // Lo que queda entre ambos.
@@ -103,13 +104,13 @@ void main() {
     // ---- 1. Degradado horizonte-cénit ----
     float altura = clamp(dir.y, 0.0, 1.0);
     float mezcla = pow(altura, CURVA_CIELO);
-    vec3 horizonte = dia * HORIZONTE_DIA + atardecer * HORIZONTE_ATARDECER + noche * HORIZONTE_NOCHE;
+    vec3 horizonte = dia * uHorizonteDia + atardecer * uHorizonteAtardecer + noche * uHorizonteNoche;
     vec3 cenit = dia * CENIT_DIA + atardecer * CENIT_ATARDECER + noche * CENIT_NOCHE;
     vec3 cielo = mix(horizonte, cenit, mezcla);
     // Resplandor del atardecer: franja cálida concentrada hacia el lado del sol.
     vec2 horizSol = normalize(sol.xz + vec2(1e-4));
     float haciaSol = max(dot(normalize(dir.xz + vec2(1e-4)), horizSol), 0.0);
-    cielo += HORIZONTE_ATARDECER * atardecer * pow(haciaSol, 3.0) * (1.0 - smoothstep(0.0, 0.5, dir.y)) * 0.5;
+    cielo += uHorizonteAtardecer * atardecer * pow(haciaSol, 3.0) * (1.0 - smoothstep(0.0, 0.5, dir.y)) * 0.5;
 
     // ---- 4. Nubes: fbm sobre un plano (uv = dir.xz / altura), desplazado por el viento ----
     float nube = 0.0;

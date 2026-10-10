@@ -36,6 +36,40 @@ public class Cielo {
     public static final float LADO_CUBO = 1.2f * RADIO_CIELO;
     public static final float[] DIRECCION_LUNA = {0.45f, 0.32f, -0.83f}; // Hacia el norte-noreste, ≈ 19° sobre el horizonte (se normaliza).
 
+    // Colores del horizonte: UNA sola fuente. Cielo los envía a cielo.frag (uHorizonte*) e Iluminacion los mezcla para
+    // la niebla (uColorNiebla), así el fondo de la niebla coincide con el horizonte del cielo.
+    public static final float[] HORIZONTE_DIA = {0.72f, 0.86f, 0.97f}; // Celeste claro.
+    public static final float[] HORIZONTE_ATARDECER = {0.98f, 0.52f, 0.24f}; // Naranja.
+    public static final float[] HORIZONTE_NOCHE = {0.06f, 0.09f, 0.22f}; // Azul noche.
+
+    private static float suave(float borde0, float borde1, float x) {
+        float t = Math.max(0, Math.min(1, (x - borde0) / (borde1 - borde0)));
+        return t * t * (3 - 2 * t); // Igual que smoothstep de GLSL.
+    }
+
+    /**
+     * Pesos {día, atardecer, noche} del cielo (suman 1). Es la MISMA fórmula que "Pesos de día / atardecer / noche" en
+     * cielo.frag: si se cambia allá, hay que cambiarla acá.
+     * @param solY altura del sol (componente Y de su dirección unitaria).
+     */
+    public static float[] pesos(float solY, float factorNoche) {
+        float dia = suave(0.35f, 0.7f, solY); // Sol alto.
+        float noche = Math.max(1 - suave(-0.2f, 0.1f, solY), suave(0.85f, 1.0f, factorNoche)); // Sol bajo el horizonte.
+        float atardecer = Math.max(1 - dia - noche, 0);
+        float total = dia + atardecer + noche;
+        return new float[] {dia / total, atardecer / total, noche / total};
+    }
+
+    /** Color del cielo en el horizonte (sin el resplandor direccional del atardecer): el color de la niebla. */
+    public static float[] colorHorizonte(float solY, float factorNoche) {
+        float[] p = pesos(solY, factorNoche);
+        float[] c = new float[3];
+        for (int i = 0; i < 3; i++) {
+            c[i] = p[0] * HORIZONTE_DIA[i] + p[1] * HORIZONTE_ATARDECER[i] + p[2] * HORIZONTE_NOCHE[i];
+        }
+        return c;
+    }
+
     /** Dirección unitaria de la luna. */
     public static float[] direccionLuna() {
         float[] d = DIRECCION_LUNA; // Nombre corto.
@@ -81,6 +115,9 @@ public class Cielo {
             shader.vector("uDireccionSol", sol[0], sol[1], sol[2]);
             shader.vector("uDireccionLuna", luna[0], luna[1], luna[2]);
             shader.decimal("uFactorNoche", iluminacion.factorNoche()); // 0 día, 1 noche, con transición.
+            shader.vector("uHorizonteDia", HORIZONTE_DIA[0], HORIZONTE_DIA[1], HORIZONTE_DIA[2]); // Mismos colores que la niebla.
+            shader.vector("uHorizonteAtardecer", HORIZONTE_ATARDECER[0], HORIZONTE_ATARDECER[1], HORIZONTE_ATARDECER[2]);
+            shader.vector("uHorizonteNoche", HORIZONTE_NOCHE[0], HORIZONTE_NOCHE[1], HORIZONTE_NOCHE[2]);
             shader.decimal("uTiempo", tiempo);
             float[] ojo = camara.getOjo(); // Centro del cubo.
             cubo.caja(ojo[0], ojo[1], ojo[2], LADO_CUBO, LADO_CUBO, LADO_CUBO, 0, 0, 0); // Color sin uso: el shader lo calcula.

@@ -40,6 +40,46 @@ public class AmbienteTest extends TestCase {
         assertFalse(iluminacion.esNocheVisual());
     }
 
+    /** Compara dos colores RGB componente a componente. */
+    private static void assertArrayEquals(float[] esperado, float[] real, float margen) {
+        assertEquals(esperado.length, real.length);
+        for (int i = 0; i < esperado.length; i++) {
+            assertEquals(esperado[i], real[i], margen);
+        }
+    }
+
+    /** La niebla tiene el color del horizonte del cielo: el de día, el de noche, y una mezcla entre ambos. */
+    public void testColorNieblaIgualAlHorizonte() {
+        Iluminacion iluminacion = new Iluminacion(null, null);
+        assertArrayEquals(Cielo.HORIZONTE_DIA, iluminacion.colorNiebla(), 1e-4f); // Día pleno.
+        iluminacion.tecla(org.lwjgl.glfw.GLFW.GLFW_KEY_N);
+        iluminacion.avanzar(Iluminacion.DURACION_TRANSICION / 2);
+        float[] medio = iluminacion.colorNiebla();
+        for (int i = 0; i < 3; i++) { // En plena transición no es ni el de día ni el de noche.
+            assertTrue(medio[i] != Cielo.HORIZONTE_DIA[i] && medio[i] != Cielo.HORIZONTE_NOCHE[i]);
+        }
+        iluminacion.avanzar(10);
+        assertArrayEquals(Cielo.HORIZONTE_NOCHE, iluminacion.colorNiebla(), 1e-4f); // Noche plena.
+        float[] pesos = Cielo.pesos(0.1f, 0.5f);
+        assertEquals(1f, pesos[0] + pesos[1] + pesos[2], 1e-5f); // Los pesos suman 1.
+    }
+
+    /** + y - cambian la densidad de a PASO_DENSIDAD_NIEBLA, entre 0 y DENSIDAD_NIEBLA_MAX. */
+    public void testTeclasDeNiebla() {
+        Iluminacion iluminacion = new Iluminacion(null, null);
+        assertEquals(Iluminacion.DENSIDAD_NIEBLA_INICIAL, iluminacion.densidadNiebla(), 0f);
+        iluminacion.tecla(org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL); // "+".
+        assertEquals(Iluminacion.DENSIDAD_NIEBLA_INICIAL + Iluminacion.PASO_DENSIDAD_NIEBLA, iluminacion.densidadNiebla(), 1e-6f);
+        for (int i = 0; i < 100; i++) {
+            iluminacion.tecla(org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ADD);
+        }
+        assertEquals(Iluminacion.DENSIDAD_NIEBLA_MAX, iluminacion.densidadNiebla(), 0f); // Tope.
+        for (int i = 0; i < 100; i++) {
+            iluminacion.tecla(org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS);
+        }
+        assertEquals(0f, iluminacion.densidadNiebla(), 0f); // Sin niebla, nunca negativa.
+    }
+
     /**
      * Hay una sombra fija por edificio, árbol, banco, luminaria de parque y basurero, y ninguna sale de la superficie
      * donde se apoya.

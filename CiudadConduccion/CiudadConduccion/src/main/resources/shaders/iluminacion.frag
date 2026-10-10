@@ -14,6 +14,9 @@ uniform float uFactorNoche; // 0 = día, 1 = noche, con valores intermedios dura
 uniform int uFaros; // Vale 1 cuando los focos están encendidos.
 uniform int uEmision; // Vale 1 si el objeto debe conservar su color sin oscurecerse.
 uniform int uMapa; // Vale 1 durante el dibujo del minimapa de Minimapa.
+uniform vec3 uOjo; // Posición de la cámara (la misma que recibe ciudad.vert): origen de la distancia para la niebla.
+uniform float uDensidadNiebla; // Niebla exponencial: 0 = sin niebla; Iluminacion la cambia con las teclas + y -.
+uniform vec3 uColorNiebla; // Color de la niebla: el del horizonte del cielo (Iluminacion.colorNiebla).
 uniform float uAlfa; // Opacidad: 1 normalmente. La bajan Sombras (centro de cada mancha) y Cubo.cajaTranslucida().
 uniform float uFactorSombraSol; // 1 = sol pleno; más bajo mientras el auto está bajo la sombra de un edificio (Sombras, solo de día).
 uniform int uSombra; // Vale 1 mientras Sombras dibuja las manchas oscuras bajo los objetos.
@@ -85,6 +88,21 @@ const float GLOBO_ATENUACION_CUADRATICA = 0.10; // así la luz queda en el parqu
 uniform vec3 uGlobos[MAX_GLOBOS]; // Centro de cada globo (Parque.LUMINARIAS), enviado por Iluminacion.preparar().
 uniform int uNumGlobos; // Cuántos globos están en uso.
 
+// ==================== NIEBLA ====================
+// Visibilidad = exp(-distancia · densidad): 1 pegado a la cámara y cada vez menos lejos. El color final es
+// mix(uColorNiebla, color, visibilidad): con visibilidad 1 es el color real y con 0 es solo niebla.
+// No hay niebla en el minimapa (vista ortográfica: la distancia no significa nada). El cielo y el HUD tienen shader propio.
+float visibilidadNiebla() {
+    if (uMapa == 1) {
+        return 1.0;
+    }
+    return exp(-length(vMundo - uOjo) * uDensidadNiebla);
+}
+
+vec4 conNiebla(vec3 colorFinal, float alfa) {
+    return vec4(mix(uColorNiebla, colorFinal, visibilidadNiebla()), alfa);
+}
+
 // ==================== LUZ PUNTUAL vs. FOCO ====================
 // Luz PUNTUAL (omnidireccional): emite igual hacia todos lados; solo importan la distancia (atenuación) y
 // cuánto mira la cara hacia la luz (difusa). Ilumina también lo que está por encima o al costado de la fuente.
@@ -126,7 +144,7 @@ void main() { // Se ejecuta para cada fragmento visible de una caja.
         // con 4 las curvas de nivel se parecen a un cuadrado de esquinas redondeadas.
         float d = pow(pow(p.x, uFormaSombra) + pow(p.y, uFormaSombra), 1.0 / uFormaSombra);
         float mancha = 1.0 - smoothstep(uNucleoSombra, 1.0, d); // 1 en el núcleo, baja suave y vale 0 en el borde.
-        color = vec4(uColor, uAlfa * mancha); // Alfa variable: el blending oscurece más el centro que el borde.
+        color = vec4(uColor, uAlfa * mancha * visibilidadNiebla()); // Alfa variable: el blending oscurece más el centro que el borde.
         return; // La sombra no se ilumina.
     }
 
@@ -143,12 +161,12 @@ void main() { // Se ejecuta para cada fragmento visible de una caja.
                 discard; // Esta porción cae sobre una acera o un parque: la pinta su propio pase.
             }
         }
-        color = vec4(uColorSombraPlanar, uAlfa); // ya aplastados por ciudad.vert; ignora uColor, el color real de cada uno.
+        color = vec4(uColorSombraPlanar, uAlfa * visibilidadNiebla()); // ya aplastados por ciudad.vert; ignora uColor, el color real de cada uno.
         return; // Sin iluminación ni degradado: un color plano, parejo en toda la silueta proyectada.
     }
 
     if (uEmision == 1 || uMapa == 1) { // Bombillas y minimapa usan colores directos.
-        color = vec4(uColor, uAlfa); // Conserva el color base; uAlfa < 1 solo en cajas translúcidas (con mezcla activada).
+        color = conNiebla(uColor, uAlfa); // Conserva el color base (con niebla); uAlfa < 1 solo en cajas translúcidas (con mezcla activada).
         return; // Termina el shader sin calcular iluminación.
     }
 
@@ -206,5 +224,5 @@ void main() { // Se ejecuta para cada fragmento visible de una caja.
 
     // Con el sol más alto, el ambiente (0.48) más la directiva (0.65) pueden superar 1.0 sobre paredes claras y
     // "quemarlas" (blanco plano, sin detalle): se recorta el resultado final a 0..1 antes de mostrarlo.
-    color = vec4(clamp(uColor * luz, 0.0, 1.0), 1.0); // Multiplica el material por toda la luz acumulada.
+    color = conNiebla(clamp(uColor * luz, 0.0, 1.0), 1.0); // Multiplica el material por toda la luz acumulada y lo mezcla con la niebla.
 }
