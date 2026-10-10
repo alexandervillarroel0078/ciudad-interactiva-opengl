@@ -5,28 +5,36 @@ import com.graphics.ciudad.mundo.Mapa; // Celdas y medidas de las manzanas.
 import com.graphics.ciudad.mundo.Parque; // Árboles, bancos y césped de los parques.
 import junit.framework.TestCase; // Proporciona las comprobaciones de JUnit usadas por Maven.
 
-/** Comprueba el cielo (cúpula, estrellas y luna) y las sombras falsas sin abrir una ventana OpenGL. */
+/** Comprueba el cielo procedural y las sombras falsas sin abrir una ventana OpenGL. */
 public class AmbienteTest extends TestCase {
 
-    /** La cúpula, las estrellas y la luna quedan dentro del plano lejano (uPlanoLejano): si no, se recortarían. */
+    /** El cubo del cielo (esquina incluida) queda dentro del plano lejano (uPlanoLejano): si no, se recortaría. */
     public void testCieloDentroDelPlanoLejano() throws Exception {
         float planoLejano = new com.graphics.ciudad.motor.Camara(Mapa.LIMITE).getPlanoLejano(); // El que recibe ciudad.vert.
-        assertTrue(Cielo.RADIO_CIELO < planoLejano); // La cúpula entera se ve.
-        assertTrue(Cielo.DISTANCIA_ESTRELLAS < Cielo.RADIO_CIELO); // Estrellas delante de la cúpula.
-        assertTrue(Cielo.DISTANCIA_LUNA + Cielo.DIAMETRO_LUNA / 2 < Cielo.DISTANCIA_ESTRELLAS); // Luna delante de las estrellas.
+        assertTrue(Cielo.RADIO_CIELO < planoLejano);
+        assertTrue(Cielo.LADO_CUBO * Math.sqrt(3) / 2 < planoLejano); // La esquina del cubo, lo más lejano que dibuja.
+        assertTrue(Cielo.direccionLuna()[1] > 0); // La luna está en el cielo, no bajo el suelo.
     }
 
-    /** Las estrellas están sobre el horizonte, con dirección unitaria, y son siempre las mismas. */
-    public void testEstrellas() {
-        assertEquals(Cielo.CANTIDAD_ESTRELLAS, Cielo.ESTRELLAS.length);
-        for (float[] e : Cielo.ESTRELLAS) {
-            float largo = (float) Math.sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]); // Largo de la dirección.
-            assertEquals(1f, largo, 1e-4f); // Unitaria: todas a la misma distancia del ojo.
-            assertTrue(e[1] >= Cielo.ALTURA_MIN_ESTRELLA - 1e-6f); // Ninguna bajo el horizonte.
-            assertTrue(e[3] >= Cielo.TAMANO_MIN_ESTRELLA && e[3] <= Cielo.TAMANO_MAX_ESTRELLA);
-            assertTrue(e[4] >= Cielo.BRILLO_MIN_ESTRELLA && e[4] <= 1);
-        }
-        assertTrue(Cielo.direccionLuna()[1] > 0); // La luna está en el cielo, no bajo el suelo.
+    /** El sol del cielo es el de la luz de día al empezar, y baja bajo el horizonte al pasar a noche. */
+    public void testTransicionDiaNoche() {
+        Iluminacion iluminacion = new Iluminacion(null, null);
+        assertEquals(0f, iluminacion.factorNoche(), 0f); // Arranca de día.
+        float[] sol = iluminacion.direccionSol();
+        float largo = (float) Math.sqrt(sol[0] * sol[0] + sol[1] * sol[1] + sol[2] * sol[2]);
+        assertEquals(1f, largo, 1e-4f); // Dirección unitaria.
+        float[] dia = Sombras.DIRECCION_SOL_DIA;
+        float largoDia = (float) Math.sqrt(dia[0] * dia[0] + dia[1] * dia[1] + dia[2] * dia[2]);
+        assertEquals(dia[1] / largoDia, sol[1], 1e-4f); // Misma altura que el sol de la luz y las sombras.
+        iluminacion.tecla(org.lwjgl.glfw.GLFW.GLFW_KEY_N); // Pide noche.
+        iluminacion.avanzar(Iluminacion.DURACION_TRANSICION / 2);
+        assertEquals(0.5f, iluminacion.factorNoche(), 1e-4f); // Transición gradual, no instantánea.
+        iluminacion.avanzar(10);
+        assertEquals(1f, iluminacion.factorNoche(), 0f); // No pasa de 1.
+        assertTrue(iluminacion.direccionSol()[1] < 0); // Sol bajo el horizonte.
+        iluminacion.tecla(org.lwjgl.glfw.GLFW.GLFW_KEY_N); // Vuelve el día.
+        iluminacion.avanzar(10);
+        assertEquals(0f, iluminacion.factorNoche(), 0f);
     }
 
     /**

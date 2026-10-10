@@ -42,6 +42,9 @@ public class Iluminacion {
     public static final boolean NOCHE_AL_INICIAR = false; // La demo arranca de día (se ve todo); N cambia a noche.
     private boolean noche = NOCHE_AL_INICIAR; // Inicia la escena de día; la tecla N alterna la iluminación nocturna.
     private boolean faros = true; // Inicia los focos del auto encendidos.
+    public static final float DURACION_TRANSICION = 2.0f; // Segundos que tarda el cielo en pasar de día a noche (y al revés).
+    public static final float ELEVACION_SOL_NOCHE = (float) Math.toRadians(-12); // Hasta dónde baja el sol visual: bajo el horizonte.
+    private float factorNoche = NOCHE_AL_INICIAR ? 1 : 0; // 0 = día, 1 = noche; solo lo usa el cielo (la luz cambia al instante).
     public static final int MAX_LUCES = 16; // Tamaño del arreglo uLuces[16] del shader: no se pueden enviar más farolas.
     public static final int MAX_GLOBOS = 16; // Tamaño de uGlobos[16]: luces PUNTUALES de las luminarias de parque (Parque.LUMINARIAS).
 
@@ -257,6 +260,37 @@ public class Iluminacion {
         if (key == GLFW_KEY_F) { // Comprueba el interruptor de los focos del auto.
             faros = !faros; // Enciende los faros si estaban apagados y viceversa.
         }
+    }
+
+    /** Acerca factorNoche a su destino (0 de día, 1 de noche) a razón de 1 / DURACION_TRANSICION por segundo. */
+    public void avanzar(float deltaTime) {
+        float destino = noche ? 1 : 0; // Hacia dónde va el cielo.
+        float paso = deltaTime / DURACION_TRANSICION; // Cuánto puede moverse en este cuadro.
+        if (factorNoche < destino) {
+            factorNoche = Math.min(destino, factorNoche + paso);
+        } else {
+            factorNoche = Math.max(destino, factorNoche - paso);
+        }
+    }
+
+    /** Transición del cielo: 0 = día pleno, 1 = noche plena (cielo.frag la usa para mezclar colores y encender estrellas). */
+    public float factorNoche() {
+        return factorNoche;
+    }
+
+    /**
+     * Dirección unitaria hacia el sol que dibuja el cielo. De día es exactamente Sombras.DIRECCION_SOL_DIA (la misma
+     * que usan la luz y las sombras); al anochecer baja por el mismo meridiano hasta ELEVACION_SOL_NOCHE, pasando por
+     * el horizonte (ahí el cielo se vuelve atardecer). Solo es visual: la iluminación de la ciudad no la usa.
+     */
+    public float[] direccionSol() {
+        float[] d = Sombras.DIRECCION_SOL_DIA; // Sol de día (sin normalizar).
+        float largo = (float) Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+        float elevacionDia = (float) Math.asin(d[1] / largo); // Altura angular del sol de día.
+        float horizontal = (float) Math.hypot(d[0], d[2]); // Para conservar el rumbo.
+        float elevacion = elevacionDia + (ELEVACION_SOL_NOCHE - elevacionDia) * factorNoche; // Baja linealmente con la transición.
+        float cos = (float) Math.cos(elevacion);
+        return new float[] {d[0] / horizontal * cos, (float) Math.sin(elevacion), d[2] / horizontal * cos};
     }
 
     /** Prepara el texto que Juego incorpora al título de la ventana. */

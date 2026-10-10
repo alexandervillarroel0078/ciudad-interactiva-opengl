@@ -16,10 +16,6 @@ uniform int uEmision; // Vale 1 si el objeto debe conservar su color sin oscurec
 uniform int uMapa; // Vale 1 durante el dibujo del minimapa de Minimapa.
 uniform float uAlfa; // Opacidad: 1 normalmente. La bajan Sombras (centro de cada mancha) y Cubo.cajaTranslucida().
 uniform float uFactorSombraSol; // 1 = sol pleno; más bajo mientras el auto está bajo la sombra de un edificio (Sombras, solo de día).
-uniform vec3 uOjo; // Posición de la cámara (la misma que recibe ciudad.vert): el cielo la usa para saber hacia dónde se mira.
-uniform int uCielo; // Vale 1 mientras Cielo dibuja la cúpula: el color sale del degradado, no de la iluminación.
-uniform vec3 uCieloCenit; // Color del cielo mirando hacia arriba (día o noche, lo elige Cielo).
-uniform vec3 uCieloHorizonte; // Color del cielo en el horizonte.
 uniform int uSombra; // Vale 1 mientras Sombras dibuja las manchas oscuras bajo los objetos.
 uniform float uFormaSombra; // Curva de la mancha: 2 = elipse, 4 = rectángulo de esquinas redondeadas.
 uniform float uNucleoSombra; // Hasta dónde la mancha es pareja (0 = centro, 1 = borde); de ahí al borde se difumina.
@@ -70,8 +66,6 @@ const float INTENSIDAD_FARO = 8.0; // Multiplicador del aporte de cada faro.
 // su intensidad: ese es justo el valor que ya se alcanza a la distancia de referencia (atenuación = 2, ≈5 unidades
 // para el faro del auto), así que a media y larga distancia el resultado no cambia; solo se achata el pico cercano.
 const float FRACCION_TOPE_FOCO = 0.5; // Tope de cada foco = intensidad · esta fracción.
-// Cielo: cómo se reparte el degradado entre el horizonte y el cénit.
-const float CURVA_CIELO = 0.6; // Exponente: < 1 hace que el azul intenso llegue rápido y el celeste quede cerca del horizonte.
 // Faros del tráfico: mismo cono que los del jugador, pero más débiles y de menor alcance.
 const int MAX_FAROS_TRAFICO = 16; // Tamaño de los arreglos de focos de tráfico; debe coincidir con Trafico.MAX_FAROS_TRAFICO.
 const float INTENSIDAD_FARO_TRAFICO = 4.0; // Multiplicador de cada foco de tráfico: la mitad que el faro del jugador.
@@ -126,14 +120,6 @@ vec3 aporteFoco(vec3 origen, vec3 frente, vec3 normal, float atenuacionCuadratic
 
 // ==================== CÁLCULO DE LUZ EN LA GPU ====================
 void main() { // Se ejecuta para cada fragmento visible de una caja.
-    if (uCielo == 1) { // Cúpula del cielo (Cielo.dibujar): degradado según hacia dónde se mira.
-        vec3 direccion = normalize(vMundo - uOjo); // Del ojo al punto de la cúpula: la dirección de la mirada.
-        float altura = clamp(direccion.y, 0.0, 1.0); // 0 en el horizonte (o debajo), 1 mirando justo hacia arriba.
-        float mezcla = pow(altura, CURVA_CIELO); // Reparte el degradado: más cielo azul, franja clara cerca del horizonte.
-        color = vec4(mix(uCieloHorizonte, uCieloCenit, mezcla), 1.0); // mix(a, b, t) = a · (1 - t) + b · t.
-        return; // El cielo no recibe luz: es el fondo.
-    }
-
     if (uSombra == 1) { // Sombra falsa (Sombras.dibujar): mancha con bordes difusos.
         vec2 p = abs(vLocal.xz) * 2.0; // Posición en la base de la caja: 0 en el centro, 1 en cada borde.
         // "Distancia" generalizada: con exponente 2 es la del círculo (Pitágoras) y la mancha es una elipse;

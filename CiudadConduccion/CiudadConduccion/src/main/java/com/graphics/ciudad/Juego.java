@@ -1,6 +1,6 @@
 package com.graphics.ciudad; // Paquete raíz de la versión organizada por composición.
 
-import com.graphics.ciudad.iluminacion.Cielo; // Fondo con degradado, estrellas y luna.
+import com.graphics.ciudad.iluminacion.Cielo; // Fondo procedural: degradado, sol, luna, estrellas y nubes.
 import com.graphics.ciudad.iluminacion.Iluminacion; // Sol, farolas y faros.
 import com.graphics.ciudad.iluminacion.Sombras; // Manchas oscuras (sombras falsas) bajo los objetos.
 import com.graphics.ciudad.interfaz.Dibujo2D; // Pase 2D con paneles y texto (STBEasyFont).
@@ -55,7 +55,7 @@ public class Juego {
     private final Cabina cabina = new Cabina(shader, cubo); // Cabina de los autos: perfil extruido con vidrios.
     private final Decoracion decoracion = new Decoracion(shader, cubo, figuras); // Detalles urbanos de la ciudad terminada.
     private final Entorno entorno = new Entorno(cubo, figuras); // Campo que rodea la ciudad; no cambia límites ni colisiones.
-    private final Cielo cielo = new Cielo(shader, cubo, figuras); // Fondo de la vista principal.
+    private final Cielo cielo = new Cielo(); // Fondo procedural de la vista principal (shader propio).
     private final Sombras sombras = new Sombras(shader, cubo, figuras, cabina, ciudad.getEdificio()); // Manchas o sombra planar.
     private final Auto auto = new Auto(); // Vehículo del jugador; no necesita OpenGL para existir.
     private final Iluminacion iluminacion = new Iluminacion(shader, figuras); // Día/noche, farolas y faros.
@@ -93,6 +93,7 @@ public class Juego {
         cubo.crear(); // Guarda en la GPU el cubo que servirá para todos los objetos.
         figuras.crear(); // Sube a la GPU la esfera, el cilindro y el cono.
         cabina.crear(); // Sube a la GPU la cabina y las ventanillas.
+        cielo.crear(); // Compila el shader del cielo procedural y sube su cubo.
         dibujo2D.crear(); // Compila el shader del HUD y reserva su buffer de vértices.
     }
 
@@ -123,6 +124,7 @@ public class Juego {
     /** Libera únicamente los recursos que llegaron a crearse. */
     private void limpiar() {
         dibujo2D.eliminar(); // Libera el shader y el buffer del HUD si existen.
+        cielo.eliminar(); // Libera el shader y el cubo del cielo si existen.
         shader.eliminar(); // Libera el programa de shaders si existe.
         cubo.eliminar(); // Libera el VBO y el VAO del cubo si existen.
         figuras.eliminar(); // Libera las mallas redondeadas si existen.
@@ -183,6 +185,7 @@ public class Juego {
         // En el menú o en pausa el paso de tiempo es 0: el mismo código se ejecuta, pero nada se mueve ni avanza.
         deltaTime = estado.dtEfectivo(deltaTime); // Tiempo real al jugar, 0 en menú o pausa.
         relojGlobal += deltaTime; // Avanza el reloj de la animación urbana en todos los cuadros.
+        iluminacion.avanzar(deltaTime); // Transición suave del cielo entre día y noche.
         // Una posición es libre si no toca manzanas ni bordes (círculo contra rectángulo) ni al tráfico (círculo contra
         // círculo). Mientras Auto prueba, getX()/getZ() siguen siendo la posición de partida del cuadro.
         Colisiones.PosicionLibre libre = (nx, nz) -> Colisiones.puedeCircular(nx, nz)
@@ -219,14 +222,15 @@ public class Juego {
         shader.matriz3("uRotacion", Shader.IDENTIDAD_3X3); // Sin rotación extra: solo las ruedas la cambian (y la restauran).
         shader.decimal("uAlfa", 1); // Opacidad completa; solo la bajan Sombras y Cubo.cajaTranslucida() (y la restauran).
         shader.decimal("uFactorSombraSol", 1); // Sol pleno; solo lo bajan Auto y Vehiculo bajo la sombra de un edificio (y lo restauran).
-        shader.entero("uCielo", 0); // Material normal: solo Cielo activa el degradado (y lo apaga al terminar).
         shader.entero("uSombra", 0); // Material normal: solo Sombras activa las manchas (y las apaga al terminar).
         cubo.enlazar(); // Selecciona los atributos del cubo compartido.
         shader.entero("uMapa", 0); // Selecciona perspectiva normal, no la proyección del minimapa.
         camara.configurar(shader, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto); // Actualiza la posición y el objetivo de la cámara.
         iluminacion.preparar(auto); // Envía la iluminación: día/noche, faros y posiciones de las farolas.
         trafico.prepararFaros(); // Envía los focos de los faros del tráfico (ninguno de día).
-        cielo.dibujar(camara.getOjo(), iluminacion.esNoche()); // PRIMERO el fondo, sin escribir profundidad: todo lo demás queda delante.
+        cielo.dibujar(camara, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto, iluminacion, relojGlobal); // PRIMERO el fondo, sin profundidad: todo lo demás queda delante.
+        shader.usar(); // Cielo deja activo su propio programa: vuelve el de la ciudad.
+        cubo.enlazar(); // Y su cubo (el del cielo tiene otro VAO).
         escena(); // Dibuja la ciudad y todos los módulos sobre ella.
         if (glGetError() != GL_NO_ERROR) { // Comprueba si OpenGL reportó una operación inválida.
             throw new IllegalStateException("Error OpenGL al dibujar"); // Hace visible el problema en consola.
