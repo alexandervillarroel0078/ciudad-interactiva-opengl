@@ -61,7 +61,24 @@ src/main/resources/shaders ← ciudad.vert, iluminacion.frag, plano.frag, hud.ve
 
 Guardar en `CiudadConduccion/CiudadConduccion/docs/capturas/`: `dia.png` (cámara de seguimiento de día), `noche.png` (misma zona con N), `minimapa.png` (sectores, auto y destino) y `parque.png` (fuente, senderos, árboles y bancos).
 
-Más detalles en [DOCUMENTO.docx](DOCUMENTO.docx).
+Más detalles en [DOCUMENTO.docx](CiudadConduccion/CiudadConduccion/DOCUMENTO.docx).
+
+## Después de cambiar el código
+
+Desde `CiudadConduccion/CiudadConduccion`:
+
+```
+mvn compile
+mvn test
+```
+
+## Generar el ZIP de entrega
+
+Desde `CiudadConduccion/CiudadConduccion`:
+
+```
+powershell -ExecutionPolicy Bypass -File .\entregar.ps1
+```
 
 ## Actualizar el repositorio (Git)
 
