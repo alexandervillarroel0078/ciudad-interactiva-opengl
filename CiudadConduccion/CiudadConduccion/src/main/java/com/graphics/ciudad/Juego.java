@@ -22,6 +22,7 @@ import com.graphics.ciudad.trafico.Trafico; // Vehículos autónomos que recorre
 import com.graphics.ciudad.vehiculo.Auto; // Vehículo del jugador.
 import com.graphics.ciudad.vehiculo.Cabina; // Cabina trapezoidal extruida, compartida por el jugador y el tráfico.
 import com.graphics.ciudad.vehiculo.Colisiones; // Manzanas y bordes; Juego le suma el tráfico para el deslizamiento.
+import com.graphics.ciudad.vehiculo.MarcasFrenado; // Huellas de goma al frenar fuerte o derrapar.
 import com.graphics.ciudad.vehiculo.IndicadorJugador; // Flecha flotante sobre el auto en la vista aérea.
 import java.util.function.IntPredicate; // Pregunta si una tecla está presionada; las pruebas pueden simularlo.
 import org.lwjgl.glfw.GLFWErrorCallback; // Muestra los errores de GLFW en la consola.
@@ -64,6 +65,7 @@ public class Juego {
     private final Minimapa minimapa = new Minimapa(shader, cubo); // Vista superior en un recuadro.
     private final IndicadorJugador indicador = new IndicadorJugador(shader, cubo); // Señala el auto desde la vista aérea.
     private final Trafico trafico = new Trafico(shader, cubo, iluminacion::esNocheVisual); // Vehículos autónomos con rutas cíclicas por las calles.
+    private final MarcasFrenado marcas = new MarcasFrenado(); // Marcas de frenado y derrape sobre el asfalto.
     private final SistemaParticulas particulas = new SistemaParticulas(); // Pool de 3000 partículas: humo, fuentes y lluvia (tecla L).
     private final Dibujo2D dibujo2D = new Dibujo2D(); // Pase 2D final: paneles y texto sobre la escena.
     private final Hud hud = new Hud(); // Panel de estado, ayuda (H), cartel de pausa y menú de inicio.
@@ -96,6 +98,7 @@ public class Juego {
         figuras.crear(); // Sube a la GPU la esfera, el cilindro y el cono.
         cabina.crear(); // Sube a la GPU la cabina y las ventanillas.
         cielo.crear(); // Compila el shader del cielo procedural y sube su cubo.
+        marcas.crear(); // Compila el shader de las marcas y sube su rectángulo.
         particulas.crear(); // Compila el shader de las partículas y sube su cuadrado.
         dibujo2D.crear(); // Compila el shader del HUD y reserva su buffer de vértices.
     }
@@ -128,6 +131,7 @@ public class Juego {
     private void limpiar() {
         dibujo2D.eliminar(); // Libera el shader y el buffer del HUD si existen.
         cielo.eliminar(); // Libera el shader y el cubo del cielo si existen.
+        marcas.eliminar(); // Libera el shader y el rectángulo de las marcas si existen.
         particulas.eliminar(); // Libera el shader y el cuadrado de las partículas si existen.
         shader.eliminar(); // Libera el programa de shaders si existe.
         cubo.eliminar(); // Libera el VBO y el VAO del cubo si existen.
@@ -180,6 +184,7 @@ public class Juego {
         auto.reset(); // Restaura posición, velocidad y orientación del vehículo.
         entregas.reset(); // Amplía el reinicio del auto: vuelve a la primera parada y al cronómetro en cero.
         trafico.reset(); // Devuelve cada vehículo autónomo al inicio de su ruta.
+        marcas.vaciar(); // Sin marcas de frenado en el asfalto.
         particulas.vaciar(); // Sin humo, gotas ni lluvia en el aire; la tecla L conserva su estado.
         camara.reiniciarSeguimiento(auto.getX(), auto.getZ(), auto.getAngulo()); // Sin barrido desde donde estaba.
     }
@@ -197,6 +202,7 @@ public class Juego {
         Colisiones.PosicionLibre libre = (nx, nz) -> Colisiones.puedeCircular(nx, nz)
             && !trafico.bloquea(auto.getX(), auto.getZ(), nx, nz, Auto.RADIO_AUTO);
         auto.actualizar(deltaTime, teclado, libre, !iluminacion.esNoche()); // Aceleración, giro, colisiones y sombra solar, de día.
+        marcas.actualizar(deltaTime, auto); // Agrega o desvanece huellas (con dt 0 en pausa no cambia nada).
         trafico.actualizar(deltaTime, auto.getX(), auto.getZ()); // Mueve los vehículos; frenan si el jugador les cierra el carril.
         actualizarTitulo(); // Muestra los controles y la velocidad actual.
         particulas.actualizar(deltaTime); // Avanza las partículas vivas (con dt 0 en pausa no se mueven ni nacen otras).
@@ -246,8 +252,9 @@ public class Juego {
         if (glGetError() != GL_NO_ERROR) { // Comprueba si OpenGL reportó una operación inválida.
             throw new IllegalStateException("Error OpenGL al dibujar"); // Hace visible el problema en consola.
         }
+        marcas.dibujar(camara, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto); // Huellas planas sobre el asfalto, sin escribir profundidad.
         particulas.dibujar(camara, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto, 1 - 0.65f * iluminacion.factorNoche()); // Billboards translúcidos, sin escribir profundidad, sobre la escena ya pintada.
-        shader.usar(); // Las partículas dejan activo su propio programa: vuelve el de la ciudad.
+        shader.usar(); // Marcas y partículas dejan activo su propio programa: vuelve el de la ciudad.
         cubo.enlazar(); // Y el cubo.
         minimapa.dibujar(ancho, alto, auto, this::escena); // Amplía el cuadro: dibuja otra vez la escena en el minimapa.
         dibujarHud(ancho, alto); // Último pase: interfaz 2D encima de todo.
@@ -311,6 +318,11 @@ public class Juego {
     /** Devuelve la cámara. */
     Camara getCamara() {
         return camara; // Seguimiento, orbital o aérea.
+    }
+
+    /** Devuelve las marcas de frenado. */
+    MarcasFrenado getMarcas() {
+        return marcas; // Huellas del auto.
     }
 
     /** Devuelve el sistema de partículas. */
