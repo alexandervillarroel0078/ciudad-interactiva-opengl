@@ -29,12 +29,15 @@ public class AmbienteTest extends TestCase {
         iluminacion.tecla(org.lwjgl.glfw.GLFW.GLFW_KEY_N); // Pide noche.
         iluminacion.avanzar(Iluminacion.DURACION_TRANSICION / 2);
         assertEquals(0.5f, iluminacion.factorNoche(), 1e-4f); // Transición gradual, no instantánea.
+        assertTrue(iluminacion.esNocheVisual()); // A mitad de camino lo discreto (bombillas, ventanas) ya cambió.
+        assertTrue(iluminacion.esNoche()); // Y esNoche() es lo que se pidió.
         iluminacion.avanzar(10);
         assertEquals(1f, iluminacion.factorNoche(), 0f); // No pasa de 1.
         assertTrue(iluminacion.direccionSol()[1] < 0); // Sol bajo el horizonte.
         iluminacion.tecla(org.lwjgl.glfw.GLFW.GLFW_KEY_N); // Vuelve el día.
         iluminacion.avanzar(10);
         assertEquals(0f, iluminacion.factorNoche(), 0f);
+        assertFalse(iluminacion.esNocheVisual());
     }
 
     /**

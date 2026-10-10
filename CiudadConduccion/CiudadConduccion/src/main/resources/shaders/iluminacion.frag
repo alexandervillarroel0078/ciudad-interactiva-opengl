@@ -10,7 +10,7 @@ uniform vec3 uLuces[16]; // Recibe las posiciones de las farolas; 16 es el máxi
 uniform int uNumLuces; // Recibe cuántas posiciones de uLuces están en uso (Iluminacion.LUCES.length).
 uniform vec3 uAuto; // Recibe la posición del auto a la altura de los faros.
 uniform vec3 uFrente; // Recibe la dirección hacia la que apunta el vehículo.
-uniform int uNoche; // Vale 1 de noche y 0 de día.
+uniform float uFactorNoche; // 0 = día, 1 = noche, con valores intermedios durante la transición (Iluminacion.factorNoche, el mismo del cielo).
 uniform int uFaros; // Vale 1 cuando los focos están encendidos.
 uniform int uEmision; // Vale 1 si el objeto debe conservar su color sin oscurecerse.
 uniform int uMapa; // Vale 1 durante el dibujo del minimapa de Minimapa.
@@ -153,20 +153,16 @@ void main() { // Se ejecuta para cada fragmento visible de una caja.
     }
 
     vec3 normal = normalize(vNormal); // Convierte la normal interpolada en un vector unitario.
-    vec3 luz = AMBIENTE_DIA; // Define la luz ambiental diurna que llega a todas las caras.
-    float intensidadSol = INTENSIDAD_SOL_DIA; // Define la fuerza de la iluminación direccional diurna.
-    if (uNoche == 1) { // Ajusta el ambiente si es de noche.
-        luz = AMBIENTE_NOCHE; // Usa una luz ambiental tenue y azulada.
-        intensidadSol = INTENSIDAD_SOL_NOCHE; // Conserva una pequeña luz direccional nocturna.
-    }
-    vec3 direccionSolBase = uNoche == 1 ? DIRECCION_SOL_NOCHE : DIRECCION_SOL_DIA; // De noche conserva la dirección original (luna).
-    vec3 direccionSol = normalize(direccionSolBase); // Define una fuente lejana por su dirección.
-    float incidenciaSol = max(dot(normal, direccionSol), 0.0); // Lambert: una cara recibe más luz si mira al sol.
-    // uFactorSombraSol solo baja la directiva (no el ambiente): de noche se ignora, así la luna nunca lo hereda.
-    float factorSol = uNoche == 1 ? 1.0 : uFactorSombraSol;
-    luz += vec3(intensidadSol) * incidenciaSol * factorSol; // Suma la contribución direccional al ambiente.
+    // Día y noche se calculan completos y se mezclan con uFactorNoche: mix(a, b, t) = a · (1 - t) + b · t.
+    vec3 luz = mix(AMBIENTE_DIA, AMBIENTE_NOCHE, uFactorNoche); // Ambiente: gris neutro de día, azul tenue de noche.
+    float incidenciaDia = max(dot(normal, normalize(DIRECCION_SOL_DIA)), 0.0); // Lambert con el sol.
+    float incidenciaNoche = max(dot(normal, normalize(DIRECCION_SOL_NOCHE)), 0.0); // Lambert con la luna.
+    // uFactorSombraSol solo baja la directiva del sol (no el ambiente) y no afecta a la luna.
+    float solDia = INTENSIDAD_SOL_DIA * incidenciaDia * uFactorSombraSol;
+    float solNoche = INTENSIDAD_SOL_NOCHE * incidenciaNoche;
+    luz += vec3(mix(solDia, solNoche, uFactorNoche)); // Contribución direccional.
 
-    if (uNoche == 1) { // Calcula la iluminación de las farolas solo de noche.
+    if (uFactorNoche > 0.0) { // Farolas y globos: se encienden con la noche (de día el bucle no corre).
         float cosenoFarolaExterior = cos(radians(ANGULO_FAROLA_EXTERIOR)); // El cono se compara con cosenos, no con grados.
         float cosenoFarolaInterior = cos(radians(ANGULO_FAROLA_INTERIOR));
         for (int indice = 0; indice < uNumLuces; indice++) { // Acumula el aporte de cada bombilla.
@@ -179,14 +175,14 @@ void main() { // Se ejecuta para cada fragmento visible de una caja.
             vec3 colorFarola = COLOR_FAROLA; // Define el tono cálido de la farola.
             float factorFarola = cono * difusa * INTENSIDAD_FAROLA / atenuacion; // Aporte sin limitar.
             float topeFarola = INTENSIDAD_FAROLA * FRACCION_TOPE_FOCO; // Mismo criterio que los faros: evita quemar una fachada muy pegada al poste.
-            luz += colorFarola * min(factorFarola, topeFarola); // Suma el aporte atenuado de esta bombilla, solo dentro del cono.
+            luz += colorFarola * min(factorFarola, topeFarola) * uFactorNoche; // Suma el aporte atenuado de esta bombilla, solo dentro del cono, a medida que anochece.
         }
         for (int indice = 0; indice < uNumGlobos; indice++) { // Luminarias globo: luz PUNTUAL, sin factor de cono.
             vec3 haciaLuz = uGlobos[indice] - vMundo; // De la superficie al globo.
             float distancia = length(haciaLuz); // Distancia recorrida por la luz.
             float difusa = max(dot(normal, normalize(haciaLuz)), 0.0); // Lambert: solo importa hacia dónde mira la cara.
             float atenuacion = 1.0 + GLOBO_ATENUACION_LINEAL * distancia + GLOBO_ATENUACION_CUADRATICA * distancia * distancia;
-            luz += COLOR_GLOBO * difusa * INTENSIDAD_GLOBO / atenuacion; // Igual hacia todos lados: no hay pantalla.
+            luz += COLOR_GLOBO * difusa * INTENSIDAD_GLOBO / atenuacion * uFactorNoche; // Igual hacia todos lados: no hay pantalla.
         }
     }
 

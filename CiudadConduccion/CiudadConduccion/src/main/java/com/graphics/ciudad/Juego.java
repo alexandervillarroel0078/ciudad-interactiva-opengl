@@ -62,7 +62,7 @@ public class Juego {
     private final Entregas entregas = new Entregas(shader, cubo); // Destinos, progreso y cronómetro.
     private final Minimapa minimapa = new Minimapa(shader, cubo); // Vista superior en un recuadro.
     private final IndicadorJugador indicador = new IndicadorJugador(shader, cubo); // Señala el auto desde la vista aérea.
-    private final Trafico trafico = new Trafico(shader, cubo, iluminacion::esNoche); // Vehículos autónomos con rutas cíclicas por las calles.
+    private final Trafico trafico = new Trafico(shader, cubo, iluminacion::esNocheVisual); // Vehículos autónomos con rutas cíclicas por las calles.
     private final Dibujo2D dibujo2D = new Dibujo2D(); // Pase 2D final: paneles y texto sobre la escena.
     private final Hud hud = new Hud(); // Panel de estado, ayuda (H), cartel de pausa y menú de inicio.
     private final EstadoPartida estado = new EstadoPartida(); // Arranca en el menú; ENTER empieza y P pausa.
@@ -185,7 +185,7 @@ public class Juego {
         // En el menú o en pausa el paso de tiempo es 0: el mismo código se ejecuta, pero nada se mueve ni avanza.
         deltaTime = estado.dtEfectivo(deltaTime); // Tiempo real al jugar, 0 en menú o pausa.
         relojGlobal += deltaTime; // Avanza el reloj de la animación urbana en todos los cuadros.
-        iluminacion.avanzar(deltaTime); // Transición suave del cielo entre día y noche.
+        iluminacion.avanzar(deltaTime); // Transición suave día/noche: cielo, luz de la ciudad y sombras usan el mismo factor.
         // Una posición es libre si no toca manzanas ni bordes (círculo contra rectángulo) ni al tráfico (círculo contra
         // círculo). Mientras Auto prueba, getX()/getZ() siguen siendo la posición de partida del cuadro.
         Colisiones.PosicionLibre libre = (nx, nz) -> Colisiones.puedeCircular(nx, nz)
@@ -317,13 +317,13 @@ public class Juego {
         trafico.dibujar(figuras, cabina); // Añade los vehículos autónomos (con sus luces según día/noche); también aparecen en el minimapa.
         iluminacion.dibujarFarolas(); // Añade las farolas: base, poste, brazo curvo, pantalla y bombilla.
         if (!minimapa.enVistaMapa()) { // Los detalles pequeños solo son necesarios en la vista principal.
-            decoracion.dibujar(iluminacion.esNoche(), relojGlobal); // Añade árboles, bancos, ventanas y señalización urbana.
+            decoracion.dibujar(iluminacion.esNocheVisual(), relojGlobal); // Añade árboles, bancos, ventanas y señalización urbana.
         }
         if (entregas.quedanEntregas()) { // Dibuja un objetivo únicamente mientras queden entregas.
             entregas.dibujarDestino(minimapa.enVistaMapa()); // Coloca la marca dorada en la parada activa.
         }
         if (!minimapa.enVistaMapa()) { // Desde arriba, en el minimapa, las manchas (o la sombra planar) solo ensuciarían el plano.
-            sombras.dibujar(auto, trafico.getVehiculos(), iluminacion.esNoche(), iluminacion::dibujarFarolasConHuella); // AL FINAL: la mezcla necesita el suelo ya pintado.
+            sombras.dibujar(auto, trafico.getVehiculos(), iluminacion.factorNoche(), iluminacion::dibujarFarolasConHuella); // AL FINAL: la mezcla necesita el suelo ya pintado.
         }
     }
 }

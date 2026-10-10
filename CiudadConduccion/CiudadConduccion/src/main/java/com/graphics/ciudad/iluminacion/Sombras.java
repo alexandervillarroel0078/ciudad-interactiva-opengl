@@ -205,21 +205,29 @@ public class Sombras {
      * Iluminacion.dibujarFarolasConHuella: la sombra planar la llama de nuevo para proyectar la misma geometría,
      * pasándole HUELLA_DENTRO o HUELLA_FUERA según el pase (ver dibujarPlanares).
      */
-    public void dibujar(Auto auto, List<Vehiculo> vehiculos, boolean noche, IntConsumer dibujarFarolas) {
-        boolean planarDeDia = USAR_SOMBRAS_PROYECTADAS && !noche; // Edificios, árboles de parque, farolas y autos cambian de mancha a planar.
+    public void dibujar(Auto auto, List<Vehiculo> vehiculos, float factorNoche, IntConsumer dibujarFarolas) {
+        // factorNoche (Iluminacion.factorNoche) es 0 de día y 1 de noche. En los extremos todo es igual que antes; en la
+        // transición las sombras se desvanecen con el mismo factor que la luz: la planar baja a 0 y las manchas de lo que
+        // la planar reemplaza (edificios, árboles de parque, autos) suben de 0 al valor de noche; las manchas fijas
+        // (bancos, luminarias, basureros, árboles del campo) pasan del alfa de día al de noche.
+        boolean planarDeDia = USAR_SOMBRAS_PROYECTADAS && factorNoche < 1; // Hay sombra planar mientras no sea noche plena.
+        boolean manchasDeNoche = !planarDeDia || factorNoche > 0; // Manchas de edificios, árboles de parque y autos.
+        float alfaFija = ALFA_SOMBRA_DIA + (ALFA_SOMBRA_NOCHE - ALFA_SOMBRA_DIA) * factorNoche; // Manchas que siempre existen.
+        float alfaNoche = planarDeDia ? ALFA_SOMBRA_NOCHE * factorNoche : ALFA_SOMBRA_NOCHE; // Manchas que reemplaza la planar.
         glEnable(GL_BLEND); // Activa la mezcla: la sombra se combina con el suelo.
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // final = sombra · alfa + suelo · (1 - alfa).
         glDepthMask(false); // Prueba la profundidad, pero no la escribe (ver comentario de la clase).
         try { // Asegura que el estado opaco vuelva aunque algo falle.
             shader.entero("uSombra", 1); // iluminacion.frag calcula el degradado circular.
-            shader.decimal("uAlfa", noche ? ALFA_SOMBRA_NOCHE : ALFA_SOMBRA_DIA); // Opacidad en el centro.
             for (float[] s : FIJAS) { // Edificios, árboles, bancos, luminarias y basureros.
-                boolean yaTienePlanar = planarDeDia && (s[8] == CATEGORIA_EDIFICIO || s[8] == CATEGORIA_ARBOL_PARQUE);
-                if (!yaTienePlanar) { // Si no, dibujarPlanares() ya la proyecta más abajo: evita oscurecer dos veces.
+                boolean reemplazable = s[8] == CATEGORIA_EDIFICIO || s[8] == CATEGORIA_ARBOL_PARQUE; // Los que la planar proyecta de día.
+                if (!reemplazable || manchasDeNoche) { // Si no, dibujarPlanares() es lo único que los dibuja: evita oscurecer dos veces.
+                    shader.decimal("uAlfa", reemplazable ? alfaNoche : alfaFija); // Opacidad en el centro.
                     mancha(s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7]); // Una mancha por objeto.
                 }
             }
-            if (!planarDeDia) { // Si no, dibujarPlanares() proyecta el auto y el tráfico.
+            if (manchasDeNoche) { // Autos: de noche, o mientras la planar se desvanece.
+                shader.decimal("uAlfa", alfaNoche);
                 float y = ELEVACION_SOMBRA; // Los autos están sobre el asfalto (Y = 0).
                 mancha(auto.getX(), y, auto.getZ(), SOMBRA_AUTO[0], SOMBRA_AUTO[1], auto.getAngulo(), FORMA_REDONDA, NUCLEO_SOMBRA); // Jugador.
                 for (Vehiculo v : vehiculos) { // Tráfico.
@@ -227,8 +235,8 @@ public class Sombras {
                 }
             }
             shader.entero("uSombra", 0); // Vuelve al material normal antes de la sombra planar (otra rama del shader).
-            if (planarDeDia) { // Solo de día, y si no se desactivó con USAR_SOMBRAS_PROYECTADAS.
-                dibujarPlanares(auto, vehiculos, dibujarFarolas);
+            if (planarDeDia) { // De día (y en la transición), si no se desactivó con USAR_SOMBRAS_PROYECTADAS.
+                dibujarPlanares(auto, vehiculos, dibujarFarolas, ALFA_SOMBRA_PLANAR * (1 - factorNoche));
             }
         } finally {
             shader.entero("uSombra", 0); // Vuelve al material normal.
@@ -266,13 +274,13 @@ public class Sombras {
      * a la porción exacta de (x, z) que le corresponde, además del propio stencil, que sigue evitando que dos copias
      * del MISMO piso se dibujen dos veces sobre el mismo píxel.
      */
-    private void dibujarPlanares(Auto auto, List<Vehiculo> vehiculos, IntConsumer dibujarFarolas) {
+    private void dibujarPlanares(Auto auto, List<Vehiculo> vehiculos, IntConsumer dibujarFarolas, float alfa) {
         glEnable(GL_STENCIL_TEST); // Activa la prueba de stencil solo para esta sección.
         glStencilFunc(GL_EQUAL, 0, 0xFF); // Solo dibuja donde ninguna sombra planar pasó todavía por este píxel.
         glStencilOp(GL_KEEP, GL_KEEP, GL_INCR); // Si lo dibuja (y pasa la prueba de profundidad), lo marca para la próxima.
         shader.entero("uSombraPlanar", 1); // ciudad.vert aplasta los vértices; iluminacion.frag usa el color plano.
         shader.vector("uColorSombraPlanar", COLOR_SOMBRA[0], COLOR_SOMBRA[1], COLOR_SOMBRA[2]); // Mismo color que la mancha.
-        shader.decimal("uAlfa", ALFA_SOMBRA_PLANAR); // Opacidad pareja, sin degradado.
+        shader.decimal("uAlfa", alfa); // Opacidad pareja, sin degradado (ALFA_SOMBRA_PLANAR de día; se desvanece con la noche).
         shader.vector("uDireccionSol", DIRECCION_SOL_DIA[0], DIRECCION_SOL_DIA[1], DIRECCION_SOL_DIA[2]); // Hacia dónde proyectar.
         try {
             // a) Piso de calle: lo que cae en el asfalto (autos siempre están acá; edificios, árboles y farolas

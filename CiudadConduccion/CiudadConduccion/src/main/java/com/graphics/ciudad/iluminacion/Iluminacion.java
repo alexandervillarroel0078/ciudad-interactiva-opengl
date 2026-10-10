@@ -17,7 +17,7 @@ import static org.lwjgl.glfw.GLFW.*; // Incluye las constantes de las teclas N y
  * ILUMINACION: sol, farolas, luminarias de parque y focos del vehículo.
  * Responsable de: el estado día/noche (N) y faros (F), las ubicaciones LUCES de las farolas (13 con FAROLAS_POR_SECTOR), el envío de
  * esos datos al shader iluminacion.frag, el modelo y el dibujo de las farolas y el texto de estado para el título.
- * Se comunica con: Shader (uniforms uNoche, uFaros, uEmision, uLuces, uGlobos, uAuto, uFrente, uRotacion), Figuras (farolas), Parque
+ * Se comunica con: Shader (uniforms uFactorNoche, uFaros, uEmision, uLuces, uGlobos, uAuto, uFrente, uRotacion), Figuras (farolas), Parque
  * (posición de las luminarias globo, que son luces PUNTUALES: van en uGlobos, no en uLuces), Auto
  * (posición y frente de los faros) y Juego (teclas, título y orden de dibujo). Decoracion usa esNoche().
  * El shader calcula iluminación local, sin sombras reales; Sombras agrega manchas oscuras (sombras falsas) bajo los objetos.
@@ -44,7 +44,7 @@ public class Iluminacion {
     private boolean faros = true; // Inicia los focos del auto encendidos.
     public static final float DURACION_TRANSICION = 2.0f; // Segundos que tarda el cielo en pasar de día a noche (y al revés).
     public static final float ELEVACION_SOL_NOCHE = (float) Math.toRadians(-12); // Hasta dónde baja el sol visual: bajo el horizonte.
-    private float factorNoche = NOCHE_AL_INICIAR ? 1 : 0; // 0 = día, 1 = noche; solo lo usa el cielo (la luz cambia al instante).
+    private float factorNoche = NOCHE_AL_INICIAR ? 1 : 0; // 0 = día, 1 = noche: lo comparten el cielo, la luz de la ciudad (uFactorNoche) y las sombras.
     public static final int MAX_LUCES = 16; // Tamaño del arreglo uLuces[16] del shader: no se pueden enviar más farolas.
     public static final int MAX_GLOBOS = 16; // Tamaño de uGlobos[16]: luces PUNTUALES de las luminarias de parque (Parque.LUMINARIAS).
 
@@ -273,6 +273,14 @@ public class Iluminacion {
         }
     }
 
+    /**
+     * Lo que se ve encendido o apagado de golpe (bombillas, ventanas, luces del tráfico, agua): cambia a mitad de la
+     * transición, cuando la luz de la ciudad ya está más cerca de la noche que del día. esNoche() es lo que pidió la tecla N.
+     */
+    public boolean esNocheVisual() {
+        return factorNoche >= 0.5f;
+    }
+
     /** Transición del cielo: 0 = día pleno, 1 = noche plena (cielo.frag la usa para mezclar colores y encender estrellas). */
     public float factorNoche() {
         return factorNoche;
@@ -320,10 +328,7 @@ public class Iluminacion {
 
     /** Actualiza los uniforms de iluminación antes de dibujar la ciudad. */
     public void preparar(Auto auto) {
-        shader.entero("uNoche", 0); // Inicialmente configura iluminación diurna.
-        if (noche) { // Revisa el modo elegido por el usuario.
-            shader.entero("uNoche", 1); // Comunica al shader que debe usar iluminación nocturna.
-        }
+        shader.decimal("uFactorNoche", factorNoche); // 0 = ambiente y sol de día, 1 = de noche; el shader hace mix entre ambos (misma transición que el cielo).
         shader.entero("uFaros", 0); // Inicialmente desactiva los conos de luz del auto.
         if (faros) { // Revisa el interruptor de los faros.
             shader.entero("uFaros", 1); // Activa el cálculo de los dos focos en el shader.
@@ -481,7 +486,7 @@ public class Iluminacion {
 
     /** Piezas de la farola i, ya ubicadas en el mundo: lo comparten dibujarFarolas() y dibujarFarolasConHuella(). */
     private void dibujarFarolaPiezas(int i) {
-        for (Pieza p : modeloFarola(i, noche)) { // Recorre sus piezas.
+        for (Pieza p : modeloFarola(i, esNocheVisual())) { // Recorre sus piezas.
             Malla malla = figuras.cilindro; // Figura de la pieza: cilindro por defecto...
             if (p.forma == Forma.ESFERA) {
                 malla = figuras.esfera; // ...esfera para codos y bombilla...
