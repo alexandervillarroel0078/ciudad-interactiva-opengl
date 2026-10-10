@@ -78,6 +78,77 @@ public class TraficoTest extends TestCase {
     }
 
     /**
+     * 5 minutos con dt fijo y varios reinicios (R) en momentos arbitrarios, uno de ellos en plena curva: tras cada
+     * cuadro, incluidos los posteriores al reinicio, ningún vehículo está en un edificio/parque ni fuera del mapa.
+     * Además cada vehículo tiene estado propio (posición, ángulo y velocidad distintos) y completa su ruta: pasa por
+     * todos sus waypoints, o sea que hace sus giros y continúa.
+     */
+    public void testCincoMinutosConReinicios() {
+        Trafico trafico = nuevoTrafico();
+        List<Vehiculo> vehiculos = trafico.getVehiculos();
+        assertTrue(vehiculos.size() >= 3); // Al menos tres vehículos autónomos.
+        float limite = Mapa.LIMITE - Vehiculo.RADIO_VEHICULO;
+        int pasos = Math.round(300 / DT); // Cinco minutos.
+        int[] reinicios = {Math.round(47.3f / DT), Math.round(101.9f / DT), Math.round(102.0f / DT), Math.round(233.4f / DT)}; // Incluye dos seguidos.
+        boolean[][] visitado = new boolean[vehiculos.size()][]; // Waypoints visitados entre reinicios.
+        int[] vueltas = new int[vehiculos.size()]; // Veces que cada uno volvió a su primer waypoint.
+        for (int i = 0; i < vehiculos.size(); i++) {
+            visitado[i] = new boolean[Trafico.RUTAS_CELDAS[i % Trafico.RUTAS_CELDAS.length].length];
+        }
+        comprobarEstadosPropios(vehiculos);
+        for (int paso = 0; paso < pasos; paso++) {
+            for (int reinicio : reinicios) {
+                if (paso == reinicio) {
+                    trafico.reset(); // Igual que la tecla R.
+                    for (int i = 0; i < vehiculos.size(); i++) {
+                        assertEquals(1, vehiculos.get(i).siguiente); // Vuelve a apuntar al segundo waypoint.
+                        java.util.Arrays.fill(visitado[i], false);
+                    }
+                    comprobarEstadosPropios(vehiculos);
+                }
+            }
+            trafico.actualizar(DT, LEJOS, LEJOS);
+            for (int i = 0; i < vehiculos.size(); i++) {
+                Vehiculo v = vehiculos.get(i);
+                String donde = "vehiculo " + i + " paso " + paso + " (" + v.getX() + ", " + v.getZ() + ")";
+                assertTrue(donde, Mapa.esCalleEn(v.getX(), v.getZ())); // Sobre calle.
+                assertTrue(donde, Math.abs(v.getX()) <= limite && Math.abs(v.getZ()) <= limite); // Dentro del mapa.
+                assertTrue(donde, Colisiones.puedeCircular(v.getX(), v.getZ())); // Sin tocar manzanas.
+                assertFalse(donde, Float.isNaN(v.getX()) || Float.isNaN(v.getZ()) || Float.isNaN(v.getAngulo()));
+                visitado[i][v.siguiente] = true;
+                if (v.siguiente == 1 && visitado[i][0] && allTrue(visitado[i])) { // Completó una vuelta.
+                    vueltas[i]++;
+                    java.util.Arrays.fill(visitado[i], false);
+                }
+            }
+        }
+        for (int i = 0; i < vehiculos.size(); i++) {
+            assertTrue("vehiculo " + i + " no completó ninguna vuelta", vueltas[i] >= 1);
+        }
+    }
+
+    private static boolean allTrue(boolean[] valores) {
+        for (boolean valor : valores) {
+            if (!valor) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Cada vehículo guarda su propia posición, orientación y velocidad: no hay dos iguales. */
+    private static void comprobarEstadosPropios(List<Vehiculo> vehiculos) {
+        for (int i = 0; i < vehiculos.size(); i++) {
+            for (int j = i + 1; j < vehiculos.size(); j++) {
+                Vehiculo a = vehiculos.get(i);
+                Vehiculo b = vehiculos.get(j);
+                assertTrue("misma posición " + i + "/" + j, a.getX() != b.getX() || a.getZ() != b.getZ());
+                assertTrue("misma velocidad " + i + "/" + j, a.getVelocidad() != b.getVelocidad());
+            }
+        }
+    }
+
+    /**
      * En la parte recta de un tramo (lejos de ambas esquinas), la distancia a la línea central de la calle debe ser
      * DESPLAZAMIENTO_CARRIL, y del lado DERECHO de la dirección de avance.
      */

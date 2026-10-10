@@ -54,6 +54,21 @@ public class MinimapaTest extends TestCase {
         assertTrue(oeste[0] < este[0]); // El oeste a la izquierda.
     }
 
+    /** De 400x400 a 3840x2160 (y ventanas anchas o altas) el recuadro cabe en la ventana, con su marco, anclado arriba a la derecha. */
+    public void testRecuadroDentroDeLaVentanaYArribaADerecha() {
+        int[][] tamanos = {{400, 400}, {640, 480}, {1100, 760}, {1920, 1080}, {3840, 2160}, {1600, 400}, {400, 1600}};
+        for (int[] t : tamanos) {
+            int[] r = Minimapa.calcularRecuadro(t[0], t[1]); // {x, y, lado, margen}; Y medida desde abajo.
+            String donde = t[0] + "x" + t[1];
+            assertTrue(donde, r[2] > 0 && r[2] <= 260); // Lado positivo y con tope.
+            assertTrue(donde, r[2] <= Math.min(t[0], t[1]) / 3); // Nunca más de un tercio de la dimensión menor.
+            assertTrue(donde, r[0] - 3 >= 0 && r[1] - 3 >= 0); // El marco de 3 px también cabe.
+            assertEquals(donde, t[0] - r[3], r[0] + r[2]); // Pegado a la derecha, a "margen" del borde.
+            assertEquals(donde, t[1] - r[3], r[1] + r[2]); // Pegado arriba (Y desde abajo), a "margen" del borde.
+            assertTrue(donde, r[0] + r[2] <= t[0] && r[1] + r[2] <= t[1]); // Dentro de la ventana.
+        }
+    }
+
     /** El shader usa la misma cuenta: el norte (-Z) hacia arriba y uMitadMapa como escala, sin números fijos. */
     public void testShaderUsaLaMismaEscala() throws Exception {
         String codigo;

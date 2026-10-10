@@ -63,6 +63,19 @@ public class Minimapa {
         return vistaMapa; // true solo durante dibujar().
     }
 
+    /**
+     * Recuadro del minimapa para una ventana de ancho × alto píxeles, sin OpenGL: {x, y, lado, margen}, con (x, y) la
+     * esquina inferior izquierda medida desde abajo (como OpenGL). Queda arriba a la derecha, a "margen" de ambos bordes.
+     */
+    static int[] calcularRecuadro(int ancho, int alto) {
+        int dimensionMenor = Math.min(ancho, alto); // Busca la dimensión que limita el espacio disponible.
+        int lado = Math.min(TAMANO_MAX_MINIMAPA, dimensionMenor / FRACCION_MINIMAPA); // Limita el mapa a 260 píxeles y a un tercio de la ventana.
+        int margen = Math.min(MARGEN_MINIMAPA, dimensionMenor / FRACCION_MARGEN); // Calcula una separación adaptable respecto a los bordes.
+        int x = ancho - lado - margen; // Ubica el recuadro cerca del borde derecho.
+        int y = alto - lado - margen; // Ubica el recuadro arriba; OpenGL mide Y desde abajo.
+        return new int[] {x, y, lado, margen}; // Todo lo que necesita dibujar().
+    }
+
     // ==================== MINIMAPA: SEGUNDO PASE DE DIBUJO ====================
 
     /** Dibuja la misma ciudad desde arriba, en un recuadro; Juego ya dibujó antes la escena principal. */
@@ -71,11 +84,10 @@ public class Minimapa {
         if (!mostrarMapa) { // Comprueba si el usuario ocultó el minimapa con M.
             return; // Conserva únicamente la imagen principal.
         }
-        int dimensionMenor = Math.min(ancho, alto); // Busca la dimensión que limita el espacio disponible.
-        int lado = Math.min(TAMANO_MAX_MINIMAPA, dimensionMenor / FRACCION_MINIMAPA); // Limita el mapa a 260 píxeles y a un tercio de la ventana.
-        int margen = Math.min(MARGEN_MINIMAPA, dimensionMenor / FRACCION_MARGEN); // Calcula una separación adaptable respecto a los bordes.
-        int x = ancho - lado - margen; // Ubica el recuadro cerca del borde derecho.
-        int y = alto - lado - margen; // Ubica el recuadro arriba; OpenGL mide Y desde abajo.
+        int[] recuadro = calcularRecuadro(ancho, alto); // {x, y, lado, margen} para el tamaño actual de la ventana.
+        int x = recuadro[0]; // Esquina inferior izquierda en X.
+        int y = recuadro[1]; // Esquina inferior izquierda en Y (OpenGL mide desde abajo).
+        int lado = recuadro[2]; // Lado del recuadro.
         glEnable(GL_SCISSOR_TEST); // Activa el recorte para no borrar el resto de la escena.
         glScissor(x - BORDE_MINIMAPA, y - BORDE_MINIMAPA, lado + 2 * BORDE_MINIMAPA, lado + 2 * BORDE_MINIMAPA); // Selecciona el mapa más un borde de tres píxeles.
         glClearColor(0.8f, 0.87f, 0.94f, 1); // Define un color claro para el marco.

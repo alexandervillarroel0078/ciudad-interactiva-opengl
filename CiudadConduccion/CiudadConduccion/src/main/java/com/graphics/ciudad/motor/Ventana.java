@@ -22,6 +22,9 @@ import static org.lwjgl.opengl.GL33.*; // Importa las funciones OpenGL hasta la 
  */
 public class Ventana {
 
+    public static final int ANCHO_MINIMO = 640; // Ancho mínimo de la ventana, en píxeles.
+    public static final int ALTO_MINIMO = 480; // Alto mínimo de la ventana: con menos, el panel de estado y el de ayuda se pisan.
+
     private long ventana; // Identificador que GLFW asigna a la ventana.
     private int ancho = 1100; // Ancho inicial de la ventana; después contiene píxeles del framebuffer.
     private int alto = 760; // Alto inicial de la ventana; después contiene píxeles del framebuffer.
@@ -47,6 +50,7 @@ public class Ventana {
         if (ventana == 0) { // GLFW devuelve cero cuando no consigue crear la ventana.
             throw new IllegalStateException("No se pudo crear la ventana OpenGL"); // Informa el fallo de creación.
         }
+        glfwSetWindowSizeLimits(ventana, ANCHO_MINIMO, ALTO_MINIMO, GLFW_DONT_CARE, GLFW_DONT_CARE); // Evita que el HUD y la ayuda se pisen.
         glfwMakeContextCurrent(ventana); // Selecciona la ventana que recibirá las llamadas OpenGL.
         glfwSwapInterval(1); // Sincroniza la presentación con la pantalla para reducir cortes de imagen.
         GL.createCapabilities(); // Carga las funciones OpenGL del contexto actual.
