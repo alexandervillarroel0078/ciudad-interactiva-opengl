@@ -45,7 +45,7 @@ public class Iluminacion {
     public static final float DURACION_TRANSICION = 2.0f; // Segundos que tarda el cielo en pasar de día a noche (y al revés).
     public static final float ELEVACION_SOL_NOCHE = (float) Math.toRadians(-12); // Hasta dónde baja el sol visual: bajo el horizonte.
     // Niebla exponencial: visibilidad = exp(-distancia · densidad). Teclas + y - cambian la densidad.
-    public static final float DENSIDAD_NIEBLA_INICIAL = 0.004f; // A 100 de distancia se ve el 67 % del color real.
+    public static final float DENSIDAD_NIEBLA_INICIAL = 0.0005f; // Casi nítida: a 100 de distancia se ve el 95 % del color real.
     public static final float DENSIDAD_NIEBLA_MAX = 0.03f; // Muy espesa: a 100 de distancia queda el 5 %.
     public static final float PASO_DENSIDAD_NIEBLA = 0.001f; // Lo que suma o resta cada pulsación.
     private float densidadNiebla = DENSIDAD_NIEBLA_INICIAL; // 0 = sin niebla.
