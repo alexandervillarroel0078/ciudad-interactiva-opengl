@@ -55,6 +55,9 @@ public class Ventana {
         glfwSwapInterval(1); // Sincroniza la presentación con la pantalla para reducir cortes de imagen.
         GL.createCapabilities(); // Carga las funciones OpenGL del contexto actual.
         glEnable(GL_DEPTH_TEST); // Hace que las superficies cercanas oculten las lejanas.
+        glEnable(GL_CULL_FACE); // Descarta las caras traseras: la GPU no rasteriza lo que la cámara no puede ver.
+        glCullFace(GL_BACK); // Se descartan las traseras (las del lado de adentro de cada sólido).
+        glFrontFace(GL_CCW); // Cara frontal = vértices en sentido antihorario visto desde afuera (el de Cubo y Malla).
         glfwSetKeyCallback(ventana, (ventanaEvento, key, scancode, action, mods) -> { // Registra la función que recibe eventos de teclado.
             if (action == GLFW_PRESS) { // Responde una sola vez al presionar, no a las repeticiones de la tecla.
                 alPresionar.accept(key); // Entrega la tecla al método tecla() de Juego, que la reparte entre los módulos.

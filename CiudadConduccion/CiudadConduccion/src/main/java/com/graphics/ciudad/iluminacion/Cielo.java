@@ -126,7 +126,7 @@ public class Cielo {
             if (habiaProfundidad) { // Restaura la prueba de profundidad.
                 glEnable(GL_DEPTH_TEST);
             }
-            if (habiaCaras) { // Restaura el descarte de caras traseras (hoy desactivado en todo el proyecto).
+            if (habiaCaras) { // Restaura el descarte de caras traseras (activo en todo el proyecto desde Ventana.crear).
                 glEnable(GL_CULL_FACE);
             }
         }

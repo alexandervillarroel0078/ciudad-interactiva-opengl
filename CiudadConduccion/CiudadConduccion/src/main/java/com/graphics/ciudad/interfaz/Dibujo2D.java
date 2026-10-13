@@ -62,6 +62,7 @@ public class Dibujo2D {
     /** Prepara OpenGL para dibujar en 2D sobre toda la ventana. */
     public void comenzar(int ancho, int alto) {
         glViewport(0, 0, ancho, alto); // El HUD ocupa toda la ventana (el minimapa pudo dejar otro viewport).
+        glDisable(GL_CULL_FACE); // Los rectángulos del HUD (y las letras de STBEasyFont) no tienen un sentido de giro garantizado.
         glDisable(GL_DEPTH_TEST); // El HUD siempre queda encima: no compite en profundidad con la escena.
         glEnable(GL_BLEND); // Activa la mezcla para que los paneles sean semitransparentes.
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // Mezcla clásica: color · alfa + fondo · (1 - alfa).
@@ -77,6 +78,7 @@ public class Dibujo2D {
         glBindVertexArray(0); // Deja de seleccionar el VAO del HUD; Juego vuelve a enlazar el del cubo.
         glDisable(GL_BLEND); // La escena 3D es opaca: sin mezcla.
         glEnable(GL_DEPTH_TEST); // Vuelve a activar la prueba de profundidad de la escena.
+        glEnable(GL_CULL_FACE); // Y el descarte de caras traseras.
     }
 
     // ==================== 4. PRIMITIVAS: RECTÁNGULOS Y TEXTO ====================

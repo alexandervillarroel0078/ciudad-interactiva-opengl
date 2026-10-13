@@ -218,6 +218,10 @@ public class Sombras {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // final = sombra · alfa + suelo · (1 - alfa).
         glDepthMask(false); // Prueba la profundidad, pero no la escribe (ver comentario de la clase).
         try { // Asegura que el estado opaco vuelva aunque algo falle.
+            // Las manchas son cajas de 0.01 de alto: sin culling se dibujan la cara de arriba Y la de abajo, y la mezcla
+            // se aplica dos veces (ese es el oscuro que siempre tuvieron). Con culling quedaría una sola y todas las
+            // manchas se verían más claras; se desactiva solo aquí para conservar su aspecto.
+            glDisable(GL_CULL_FACE);
             shader.entero("uSombra", 1); // iluminacion.frag calcula el degradado circular.
             for (float[] s : FIJAS) { // Edificios, árboles, bancos, luminarias y basureros.
                 boolean reemplazable = s[8] == CATEGORIA_EDIFICIO || s[8] == CATEGORIA_ARBOL_PARQUE; // Los que la planar proyecta de día.
@@ -235,6 +239,7 @@ public class Sombras {
                 }
             }
             shader.entero("uSombra", 0); // Vuelve al material normal antes de la sombra planar (otra rama del shader).
+            glEnable(GL_CULL_FACE); // La sombra planar reutiliza geometría real y sí usa el culling.
             if (planarDeDia) { // De día (y en la transición), si no se desactivó con USAR_SOMBRAS_PROYECTADAS.
                 dibujarPlanares(auto, vehiculos, dibujarFarolas, ALFA_SOMBRA_PLANAR * (1 - factorNoche));
             }
@@ -243,6 +248,7 @@ public class Sombras {
             shader.decimal("uAlfa", 1); // Opacidad completa.
             glDepthMask(true); // Vuelve a escribir profundidad.
             glDisable(GL_BLEND); // La escena 3D es opaca: sin mezcla.
+            glEnable(GL_CULL_FACE); // Deja el culling activo como lo espera el resto del cuadro.
         }
     }
 

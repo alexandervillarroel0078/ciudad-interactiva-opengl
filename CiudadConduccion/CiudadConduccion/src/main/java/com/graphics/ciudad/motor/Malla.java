@@ -108,13 +108,13 @@ public class Malla {
                 float[] d = puntoEsfera(theta1, phi2); // Esquina superior derecha.
                 if (i != anillos - 1) { // Salvo en el polo sur, el triángulo a-b-c tiene tres puntos distintos.
                     escrito = verticeEsfera(datos, escrito, a); // Primer vértice.
-                    escrito = verticeEsfera(datos, escrito, b); // Segundo vértice.
-                    escrito = verticeEsfera(datos, escrito, c); // Tercer vértice.
+                    escrito = verticeEsfera(datos, escrito, c); // Segundo vértice (c antes que b: antihorario visto desde afuera).
+                    escrito = verticeEsfera(datos, escrito, b); // Tercer vértice.
                 }
                 if (i != 0) { // Salvo en el polo norte (donde a y d coinciden), se agrega el triángulo a-c-d.
                     escrito = verticeEsfera(datos, escrito, a); // Primer vértice.
+                    escrito = verticeEsfera(datos, escrito, d); // Segundo vértice (d antes que c: antihorario visto desde afuera).
                     escrito = verticeEsfera(datos, escrito, i == anillos - 1 ? b : c); // En el polo sur b = c: usa b.
-                    escrito = verticeEsfera(datos, escrito, d); // Tercer vértice.
                 }
             }
         }
@@ -152,12 +152,13 @@ public class Malla {
             float c2 = (float) Math.cos(2 * Math.PI * (k + 1) / lados); // Coseno del ángulo final.
             float s2 = (float) Math.sin(2 * Math.PI * (k + 1) / lados); // Seno del ángulo final.
             // Costado: dos triángulos entre la base y la tapa; normales radiales horizontales.
+            // Orden antihorario visto desde afuera (con culling, el costado se ve por fuera y no por dentro).
             i = vertice(datos, i, c1 * RADIO, -MITAD_ALTO, s1 * RADIO, c1, 0, s1); // Abajo, ángulo inicial.
+            i = vertice(datos, i, c2 * RADIO, MITAD_ALTO, s2 * RADIO, c2, 0, s2); // Arriba, ángulo final.
             i = vertice(datos, i, c2 * RADIO, -MITAD_ALTO, s2 * RADIO, c2, 0, s2); // Abajo, ángulo final.
-            i = vertice(datos, i, c2 * RADIO, MITAD_ALTO, s2 * RADIO, c2, 0, s2); // Arriba, ángulo final.
             i = vertice(datos, i, c1 * RADIO, -MITAD_ALTO, s1 * RADIO, c1, 0, s1); // Abajo, ángulo inicial.
-            i = vertice(datos, i, c2 * RADIO, MITAD_ALTO, s2 * RADIO, c2, 0, s2); // Arriba, ángulo final.
             i = vertice(datos, i, c1 * RADIO, MITAD_ALTO, s1 * RADIO, c1, 0, s1); // Arriba, ángulo inicial.
+            i = vertice(datos, i, c2 * RADIO, MITAD_ALTO, s2 * RADIO, c2, 0, s2); // Arriba, ángulo final.
             // Tapa superior: abanico desde el centro, normal hacia arriba.
             i = vertice(datos, i, 0, MITAD_ALTO, 0, 0, 1, 0); // Centro de la tapa.
             i = vertice(datos, i, c2 * RADIO, MITAD_ALTO, s2 * RADIO, 0, 1, 0); // Borde, ángulo final.
@@ -196,12 +197,12 @@ public class Malla {
             float z2 = (float) Math.sin(phi2) * RADIO; // Borde de la base, ángulo final, Z.
             // Costado: un triángulo de la base a la punta.
             i = vertice(datos, i, x1, -MITAD_ALTO, z1, n1[0], n1[1], n1[2]); // Base, ángulo inicial.
+            i = vertice(datos, i, 0, MITAD_ALTO, 0, nPunta[0], nPunta[1], nPunta[2]); // Punta (antes que la base final: antihorario desde afuera).
             i = vertice(datos, i, x2, -MITAD_ALTO, z2, n2[0], n2[1], n2[2]); // Base, ángulo final.
-            i = vertice(datos, i, 0, MITAD_ALTO, 0, nPunta[0], nPunta[1], nPunta[2]); // Punta.
             // Base cerrada: abanico desde el centro, normal hacia abajo.
             i = vertice(datos, i, 0, -MITAD_ALTO, 0, 0, -1, 0); // Centro de la base.
-            i = vertice(datos, i, x2, -MITAD_ALTO, z2, 0, -1, 0); // Borde, ángulo final.
             i = vertice(datos, i, x1, -MITAD_ALTO, z1, 0, -1, 0); // Borde, ángulo inicial.
+            i = vertice(datos, i, x2, -MITAD_ALTO, z2, 0, -1, 0); // Borde, ángulo final.
         }
         return datos; // Vértices del cono.
     }
@@ -280,14 +281,18 @@ public class Malla {
         float mx = (a[0] + b[0] + c[0]) / 3 - centro[0]; // Del centro de la figura al centro del triángulo, en X.
         float my = (a[1] + b[1] + c[1]) / 3 - centro[1]; // En Y.
         float mz = (a[2] + b[2] + c[2]) / 3 - centro[2]; // En Z.
+        float[] segundo = b; // Vértice que se escribe en segundo lugar.
+        float[] tercero = c; // Y en tercer lugar.
         if (nx * mx + ny * my + nz * mz < 0) { // La normal apunta hacia adentro...
-            nx = -nx; // ...se invierte.
-            ny = -ny; // ...se invierte.
-            nz = -nz; // ...se invierte.
+            nx = -nx; // ...se invierte...
+            ny = -ny;
+            nz = -nz;
+            segundo = c; // ...y también el orden de los vértices: el triángulo queda antihorario visto desde afuera,
+            tercero = b; // que es lo que el culling toma como cara frontal.
         }
         i = vertice(datos, i, a[0], a[1], a[2], nx, ny, nz); // Vértice a con la normal de la cara.
-        i = vertice(datos, i, b[0], b[1], b[2], nx, ny, nz); // Vértice b.
-        return vertice(datos, i, c[0], c[1], c[2], nx, ny, nz); // Vértice c.
+        i = vertice(datos, i, segundo[0], segundo[1], segundo[2], nx, ny, nz); // Vértice b (o c si se invirtió).
+        return vertice(datos, i, tercero[0], tercero[1], tercero[2], nx, ny, nz); // Vértice c (o b si se invirtió).
     }
 
     /** Escribe un vértice (posición y normal) en el arreglo y devuelve la próxima posición libre. */

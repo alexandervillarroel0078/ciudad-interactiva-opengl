@@ -100,6 +100,9 @@ public class Minimapa {
         recuadroY = y; // Esquina inferior del recuadro.
         recuadroLado = lado; // Tamaño del recuadro.
         shader.entero("uMapa", 1); // Selecciona la proyección ortográfica del shader ciudad.vert.
+        // La proyección del minimapa (x, y, z) → (x, -z, -y) es un ESPEJO (determinante -1): invierte el sentido de giro de
+        // todos los triángulos en pantalla, así que las caras frontales pasan a verse en sentido horario.
+        glFrontFace(GL_CW);
         shader.decimal("uMitadMapa", Mapa.LIMITE + MARGEN_MAPA); // Encuadra la ciudad completa, sea cual sea el tamaño de MAPA.
         vistaMapa = true; // Indica a Juego.escena() que omita decoración pequeña y baliza flotante.
         try { // Asegura que el estado de dibujo se restaure incluso si el segundo pase falla.
@@ -109,6 +112,7 @@ public class Minimapa {
         } finally { // El siguiente cuadro debe volver a la configuración de pantalla completa.
             vistaMapa = false; // Reactiva los detalles de la escena principal.
             shader.entero("uMapa", 0); // Recupera la proyección en perspectiva.
+            glFrontFace(GL_CCW); // Y el sentido de giro normal de la vista principal.
             glDisable(GL_SCISSOR_TEST); // Permite que la próxima limpieza abarque toda la pantalla.
             glViewport(0, 0, ancho, alto); // Recupera el área de dibujo de la ventana completa.
         }
