@@ -34,6 +34,7 @@ public class Hud {
         "   ruedita = acercar / alejar",
         "N: dia / noche     F: faros",
         "+ / -: niebla     L: lluvia",
+        "F1: sombras  F2: niebla  F3: FPS",
         "M: minimapa        H: esta ayuda",
         "P: pausa           R: reiniciar",
         "ESC: salir"

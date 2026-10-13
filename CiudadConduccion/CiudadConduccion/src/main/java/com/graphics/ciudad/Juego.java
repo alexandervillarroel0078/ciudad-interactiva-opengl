@@ -25,6 +25,7 @@ import com.graphics.ciudad.vehiculo.Cabina; // Cabina trapezoidal extruida, comp
 import com.graphics.ciudad.vehiculo.Colisiones; // Manzanas y bordes; Juego le suma el tráfico para el deslizamiento.
 import com.graphics.ciudad.vehiculo.MarcasFrenado; // Huellas de goma al frenar fuerte o derrapar.
 import com.graphics.ciudad.vehiculo.IndicadorJugador; // Flecha flotante sobre el auto en la vista aérea.
+import java.util.Arrays; // Agrega al panel las líneas de FPS y draw calls.
 import java.util.function.IntPredicate; // Pregunta si una tecla está presionada; las pruebas pueden simularlo.
 import org.lwjgl.glfw.GLFWErrorCallback; // Muestra los errores de GLFW en la consola.
 import static org.lwjgl.glfw.GLFW.*; // Importa las funciones y constantes de ventanas y teclado.
@@ -73,6 +74,7 @@ public class Juego {
     private final EstadoPartida estado = new EstadoPartida(); // Arranca en el menú; ENTER empieza y P pausa.
     private IntPredicate teclado = ventana::pulsada; // Teclas mantenidas; por defecto las lee de la ventana GLFW.
     private final Estadisticas estadisticas = new Estadisticas(); // FPS (promedio de 0.5 s); los draw calls son un contador estático.
+    private boolean mostrarEstadisticas = true; // F3: muestra u oculta las líneas de FPS y draw calls del HUD.
     private float relojGlobal = 0; // Segundos desde el arranque; no se detiene al ganar ni se reinicia con R. Anima los semáforos.
 
     // ==================== 2. INICIO, CICLO Y LIMPIEZA ====================
@@ -177,6 +179,18 @@ public class Juego {
             hud.alternarAyuda(); // Muestra u oculta la lista de controles.
         }
 
+        if (key == GLFW_KEY_F1) { // Sombra planar proyectada <-> solo manchas.
+            Sombras.setUsarSombrasProyectadas(!Sombras.getUsarSombrasProyectadas());
+        }
+
+        if (key == GLFW_KEY_F2) { // Niebla activada / desactivada.
+            iluminacion.alternarNiebla();
+        }
+
+        if (key == GLFW_KEY_F3) { // Líneas de FPS y draw calls del HUD.
+            mostrarEstadisticas = !mostrarEstadisticas;
+        }
+
         iluminacion.tecla(key); // Amplía los controles con N y F; conserva ESC, C y R.
         particulas.tecla(key); // Amplía las teclas con L (lluvia).
         minimapa.tecla(key); // Amplía las teclas con M; conserva salida, cámara, reinicio y luces.
@@ -270,7 +284,7 @@ public class Juego {
     /** Dibuja el HUD en un pase ortográfico 2D y restaura el estado de OpenGL para el próximo cuadro. */
     private void dibujarHud(int ancho, int alto) {
         int kilometrosPorHora = Math.round(Math.abs(auto.getVelocidad()) * 3.6f); // Convierte m/s a km/h y redondea.
-        String[] lineas = { // Líneas del panel de estado, de arriba hacia abajo.
+        String[] base = { // Líneas del panel de estado, de arriba hacia abajo.
             "Velocidad: " + kilometrosPorHora + " km/h", // Velocidad actual.
             "Faros: " + (iluminacion.farosEncendidos() ? "ON" : "OFF"), // Estado de los faros (tecla F).
             "Ambiente: " + (iluminacion.esNoche() ? "Noche" : "Día"), // Día o noche (tecla N).
@@ -278,10 +292,14 @@ public class Juego {
             "Destino: " + entregas.nombreDestino(), // Parada activa (marca dorada).
             "Sector: " + Mapa.nombreSector(auto.getX(), auto.getZ()), // Zona de la ciudad donde está el auto.
             "Cámara: " + camara.nombreModo(), // Modo de cámara actual (tecla C).
-            "H: ayuda   P: pausa", // Recordatorio de las teclas de la interfaz.
-            "FPS: " + estadisticas.getFps(), // Promedio de los últimos 0.5 s.
-            "Draw calls: " + Estadisticas.getLlamadas() // Vista principal + minimapa de este cuadro (sin el propio HUD).
+            "H: ayuda   P: pausa" // Recordatorio de las teclas de la interfaz.
         };
+        String[] lineas = base; // Sin F3 el panel queda como era.
+        if (mostrarEstadisticas) { // F3: agrega dos líneas al final.
+            lineas = Arrays.copyOf(base, base.length + 2);
+            lineas[base.length] = "FPS: " + estadisticas.getFps(); // Promedio de los últimos 0.5 s.
+            lineas[base.length + 1] = "Draw calls: " + Estadisticas.getLlamadas(); // Vista principal + minimapa de este cuadro (sin el propio HUD).
+        }
         dibujo2D.comenzar(ancho, alto); // Desactiva la profundidad, activa la mezcla y usa el shader del HUD.
         try { // Asegura que el estado 3D se restaure aunque falle el dibujo.
             dibujarNombresSectores(ancho, alto); // Nombres de los sectores sobre el minimapa (si está visible).

@@ -49,6 +49,7 @@ public class Iluminacion {
     public static final float DENSIDAD_NIEBLA_MAX = 0.03f; // Muy espesa: a 100 de distancia queda el 5 %.
     public static final float PASO_DENSIDAD_NIEBLA = 0.001f; // Lo que suma o resta cada pulsación.
     private float densidadNiebla = DENSIDAD_NIEBLA_INICIAL; // 0 = sin niebla.
+    private boolean nieblaActiva = true; // F2 la apaga sin perder la densidad elegida con + y -.
     private float factorNoche = NOCHE_AL_INICIAR ? 1 : 0; // 0 = día, 1 = noche: lo comparten el cielo, la luz de la ciudad (uFactorNoche) y las sombras.
     public static final int MAX_LUCES = 16; // Tamaño del arreglo uLuces[16] del shader: no se pueden enviar más farolas.
     public static final int MAX_GLOBOS = 16; // Tamaño de uGlobos[16]: luces PUNTUALES de las luminarias de parque (Parque.LUMINARIAS).
@@ -292,6 +293,16 @@ public class Iluminacion {
         return factorNoche >= 0.5f;
     }
 
+    /** Activa o desactiva la niebla (F2); la densidad elegida con + y - se conserva. */
+    public void alternarNiebla() {
+        nieblaActiva = !nieblaActiva;
+    }
+
+    /** Indica si la niebla está activada (F2). */
+    public boolean nieblaActiva() {
+        return nieblaActiva;
+    }
+
     /** Densidad actual de la niebla (teclas + y -). */
     public float densidadNiebla() {
         return densidadNiebla;
@@ -351,7 +362,7 @@ public class Iluminacion {
     public void preparar(Auto auto) {
         float[] niebla = colorNiebla();
         shader.vector("uColorNiebla", niebla[0], niebla[1], niebla[2]); // Igual al horizonte de cielo.frag.
-        shader.decimal("uDensidadNiebla", densidadNiebla); // 0 = sin niebla.
+        shader.decimal("uDensidadNiebla", nieblaActiva ? densidadNiebla : 0); // 0 = sin niebla (también con F2).
         shader.decimal("uFactorNoche", factorNoche); // 0 = ambiente y sol de día, 1 = de noche; el shader hace mix entre ambos (misma transición que el cielo).
         shader.entero("uFaros", 0); // Inicialmente desactiva los conos de luz del auto.
         if (faros) { // Revisa el interruptor de los faros.

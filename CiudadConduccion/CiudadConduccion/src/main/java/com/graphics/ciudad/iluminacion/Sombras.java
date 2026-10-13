@@ -47,7 +47,7 @@ import static org.lwjgl.opengl.GL33.*; // Mezcla (blending), máscara de profund
  * profundidad y parpadearían (z-fighting). De noche la sombra es más tenue (ALFA_SOMBRA_NOCHE): hay menos luz.
  * Solo se dibujan en la vista principal, no en el minimapa.
  *
- * SOMBRA PLANAR (USAR_SOMBRAS_PROYECTADAS, de día): para edificios, árboles de los parques, farolas y autos
+ * SOMBRA PLANAR (usarSombrasProyectadas, tecla F1, de día): para edificios, árboles de los parques, farolas y autos
  * (jugador y tráfico), dibujarPlanares() reutiliza la MISMA geometría que la escena ya dibuja (Edificio.dibujar,
  * Parque.dibujarArbol, Iluminacion.dibujarFarolasConHuella, Auto.dibujar y Vehiculo.dibujar), pero con ciudad.vert en
  * modo uSombraPlanar: cada vértice se aplasta hacia uAlturaPlanoSombra siguiendo DIRECCION_SOL_DIA, la misma
@@ -75,7 +75,7 @@ import static org.lwjgl.opengl.GL33.*; // Mezcla (blending), máscara de profund
  * Z-FIGHTING: en vez de glPolygonOffset, ciudad.vert deja el vértice proyectado en uAlturaPlanoSombra +
  * ELEVACION_SOMBRA_PLANAR, una fracción mínima sobre cada piso (mismo truco que ELEVACION_SOMBRA, pero más chico
  * porque no hay mancha debajo).
- * SOLO DE DÍA: de noche (o con USAR_SOMBRAS_PROYECTADAS en false) todo vuelve a las manchas de siempre, sin cambios;
+ * SOLO DE DÍA: de noche (o con usarSombrasProyectadas en false) todo vuelve a las manchas de siempre, sin cambios;
  * así se puede desactivar el cambio en vivo. Los árboles del campo (Entorno), los bancos, las luminarias de parque y
  * los basureros NO tienen sombra planar (quedan fuera de la prioridad pedida: calles y aceras dentro de la ciudad) y
  * conservan su mancha también de día.
@@ -112,14 +112,24 @@ public class Sombras {
     public static final float SOMBRA_LUMINARIA = 0.7f; // Diámetro de la mancha al pie de una luminaria globo (base de 0.24).
 
     // ---- Sombra planar (valores ajustables) ----
-    public static final boolean USAR_SOMBRAS_PROYECTADAS = true; // false vuelve a las manchas de siempre también de día.
+    private static boolean usarSombrasProyectadas = true; // false vuelve a las manchas de siempre también de día (tecla F1 en Juego).
+
+    /** Indica si de día se usa la sombra planar proyectada (true) o solo las manchas (false). */
+    public static boolean getUsarSombrasProyectadas() {
+        return usarSombrasProyectadas;
+    }
+
+    /** Elige entre sombra planar proyectada y manchas; Juego lo alterna con F1. */
+    public static void setUsarSombrasProyectadas(boolean usar) {
+        usarSombrasProyectadas = usar;
+    }
     public static final float ALFA_SOMBRA_PLANAR = 0.35f; // Opacidad pareja de la sombra planar (sin degradado).
     // Misma dirección que iluminacion.frag (DIRECCION_SOL_DIA, junto a INTENSIDAD_SOL_DIA): si se cambia el ángulo
     // del sol ahí, hay que repetirlo acá para que la sombra planar siga apuntando al mismo lado. No se normaliza:
     // la proyección (ciudad.vert) solo usa la razón entre sus componentes, así que la escala no importa.
     public static final float[] DIRECCION_SOL_DIA = {0.12f, 1.0f, 0.48f};
     private static final int CATEGORIA_SIEMPRE = 0; // Bancos, luminarias, basureros y árboles del campo: mancha siempre.
-    private static final int CATEGORIA_EDIFICIO = 1; // De día con USAR_SOMBRAS_PROYECTADAS, pasa a sombra planar.
+    private static final int CATEGORIA_EDIFICIO = 1; // De día con usarSombrasProyectadas, pasa a sombra planar.
     private static final int CATEGORIA_ARBOL_PARQUE = 2; // Ídem.
     private static final float ALTURA_CALLE = 0f; // Piso del asfalto: autos y la parte de cada sombra que cae en la calle.
     private static final boolean SOMBRAS_EN_ACERA = true; // false vuelve a proyectar edificios y farolas solo a nivel calle.
@@ -210,7 +220,7 @@ public class Sombras {
         // transición las sombras se desvanecen con el mismo factor que la luz: la planar baja a 0 y las manchas de lo que
         // la planar reemplaza (edificios, árboles de parque, autos) suben de 0 al valor de noche; las manchas fijas
         // (bancos, luminarias, basureros, árboles del campo) pasan del alfa de día al de noche.
-        boolean planarDeDia = USAR_SOMBRAS_PROYECTADAS && factorNoche < 1; // Hay sombra planar mientras no sea noche plena.
+        boolean planarDeDia = usarSombrasProyectadas && factorNoche < 1; // Hay sombra planar mientras no sea noche plena.
         boolean manchasDeNoche = !planarDeDia || factorNoche > 0; // Manchas de edificios, árboles de parque y autos.
         float alfaFija = ALFA_SOMBRA_DIA + (ALFA_SOMBRA_NOCHE - ALFA_SOMBRA_DIA) * factorNoche; // Manchas que siempre existen.
         float alfaNoche = planarDeDia ? ALFA_SOMBRA_NOCHE * factorNoche : ALFA_SOMBRA_NOCHE; // Manchas que reemplaza la planar.
@@ -240,7 +250,7 @@ public class Sombras {
             }
             shader.entero("uSombra", 0); // Vuelve al material normal antes de la sombra planar (otra rama del shader).
             glEnable(GL_CULL_FACE); // La sombra planar reutiliza geometría real y sí usa el culling.
-            if (planarDeDia) { // De día (y en la transición), si no se desactivó con USAR_SOMBRAS_PROYECTADAS.
+            if (planarDeDia) { // De día (y en la transición), si no se desactivó con usarSombrasProyectadas (F1).
                 dibujarPlanares(auto, vehiculos, dibujarFarolas, ALFA_SOMBRA_PLANAR * (1 - factorNoche));
             }
         } finally {
