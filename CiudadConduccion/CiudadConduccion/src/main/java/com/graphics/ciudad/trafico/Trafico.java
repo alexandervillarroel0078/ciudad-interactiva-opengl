@@ -16,6 +16,7 @@ import java.util.function.BooleanSupplier; // Consulta de día/noche que se entr
  * TRAFICO: conjunto de vehículos autónomos que recorren la ciudad.
  * Responsable de: definir las rutas (RUTAS_CELDAS), validarlas contra el Mapa, crear un Vehiculo por ruta,
  * actualizarlos con dt, hacerlos frenar ante el jugador u otro vehículo en su carril, impedir que el jugador los atraviese,
+ * hacerlos respetar los semáforos (frenan ante la línea con rojo o amarillo; ver Vehiculo.huecoSemaforo),
  * reiniciarlos con R, dibujarlos y enviar al shader los focos de sus faros (solo de noche).
  * Día/noche no se guarda aquí: se recibe como BooleanSupplier (Iluminacion::esNoche) y se pasa a cada Vehiculo.
  * Se comunica con: Mapa (celdas y coordenadas), Vehiculo (cada auto), Colisiones (círculo contra círculo), Cubo y
@@ -53,6 +54,7 @@ public class Trafico {
     private final Cubo cubo; // Geometría con la que se dibujan los vehículos.
     private final List<Vehiculo> vehiculos = new ArrayList<>(); // Un vehículo por ruta.
     private final BooleanSupplier esNoche; // Estado día/noche de Iluminacion; decide si hay focos de tráfico.
+    private float reloj = 0; // Segundos acumulados; solo lo usa actualizar() sin reloj global. No se reinicia con R.
 
     /** Valida las rutas contra el Mapa y crea un vehículo por cada una; esNoche suele ser Iluminacion::esNoche. No usa OpenGL. */
     public Trafico(Shader shader, Cubo cubo, BooleanSupplier esNoche) {
@@ -102,8 +104,10 @@ public class Trafico {
      * el jugador (jugadorX, jugadorZ) o cualquier otro vehículo, con la misma regla. Para otro vehículo se mira también
      * su trayectoria de los próximos segundos (Vehiculo.huecoHastaTrayectoria), así los cruces se ven con tiempo.
      * Primero se calculan todos los huecos y después se mueven todos, así el orden de la lista no cambia el resultado.
+     * tiempo es el reloj global de Juego (el que anima los semáforos): con él cada vehículo sabe qué luz ve su acceso y
+     * frena ante la línea de detención (Vehiculo.huecoSemaforo). El jugador no se ve afectado por los semáforos.
      */
-    public void actualizar(float deltaTime, float jugadorX, float jugadorZ) {
+    public void actualizar(float deltaTime, float jugadorX, float jugadorZ, float tiempo) {
         int cantidad = vehiculos.size(); // Número de vehículos.
         float[] huecos = new float[cantidad]; // Hueco de cada vehículo hasta su obstáculo más cercano.
         for (int i = 0; i < cantidad; i++) { // Vehículo que decide si frena.
@@ -117,8 +121,15 @@ public class Trafico {
             huecos[i] = hueco;
         }
         for (int i = 0; i < cantidad; i++) { // Ahora sí, mueve a todos.
-            vehiculos.get(i).actualizar(deltaTime, huecos[i]); // Avanza por su ruta, frenando si hace falta.
+            Vehiculo vehiculo = vehiculos.get(i);
+            vehiculo.actualizar(deltaTime, huecos[i], vehiculo.huecoSemaforo(tiempo)); // Avanza por su ruta, frenando si hace falta.
         }
+    }
+
+    /** Igual que la anterior con un reloj propio (suma deltaTime); sirve cuando no hay reloj global, como en las pruebas. */
+    public void actualizar(float deltaTime, float jugadorX, float jugadorZ) {
+        reloj += deltaTime; // Mismo avance que el reloj global de Juego.
+        actualizar(deltaTime, jugadorX, jugadorZ, reloj);
     }
 
     /**

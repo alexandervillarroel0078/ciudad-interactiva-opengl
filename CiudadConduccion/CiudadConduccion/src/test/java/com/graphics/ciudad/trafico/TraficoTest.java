@@ -3,6 +3,7 @@ package com.graphics.ciudad.trafico; // Prueba el tráfico desde su mismo paquet
 import com.graphics.ciudad.motor.Cubo; // Se crea sin tocar la GPU: solo guarda referencias.
 import com.graphics.ciudad.motor.Shader; // Se crea sin tocar la GPU: OpenGL se usa recién en crear().
 import com.graphics.ciudad.mundo.Mapa; // Comprueba celdas de calle y límites.
+import com.graphics.ciudad.mundo.Semaforo; // Ciclo de las luces que respetan los vehículos.
 import com.graphics.ciudad.vehiculo.Colisiones; // Comprueba que ningún vehículo toque una manzana.
 import java.util.List; // Tipo de la lista de vehículos.
 import junit.framework.TestCase; // Proporciona las comprobaciones de JUnit usadas por Maven.
@@ -12,7 +13,7 @@ public class TraficoTest extends TestCase {
 
     private static final float DT = 1f / 60; // Paso fijo: 60 cuadros por segundo.
     private static final float SEGUNDOS = 120; // Duración de la simulación.
-    private static final float VENTANA_MOVIMIENTO = 5; // Cada 5 s se exige que cada vehículo haya avanzado.
+    private static final float VENTANA_MOVIMIENTO = Semaforo.CICLO; // Cada ciclo de semáforo (14 s) se exige que cada vehículo haya avanzado: un rojo dura 7 s.
     private static final float AVANCE_MINIMO = 5; // Unidades mínimas recorridas en cada ventana de 5 s.
     private static final float LEJOS = 1000; // Posición del jugador fuera del mapa: no frena a nadie.
     private static final float MARGEN_GIRO = 8; // En los 8 primeros y últimos metros de cada tramo el vehículo está girando.
@@ -316,6 +317,91 @@ public class TraficoTest extends TestCase {
         assertEquals(0f, Vehiculo.factorPorHueco(-1), 0f); // Ya lo toca.
         float medio = (Vehiculo.DISTANCIA_FRENADO + Vehiculo.DISTANCIA_DETENCION) / 2; // Mitad de la zona.
         assertEquals(0.5f, Vehiculo.factorPorHueco(medio), 1e-6f);
+    }
+
+    // ==================== SEMÁFOROS ====================
+
+    /** X de la línea de detención del cruce (4,4) para quien viaja al este por la fila 4. */
+    private static float lineaEste() {
+        return Mapa.centro(4) - Vehiculo.LINEA_DETENCION;
+    }
+
+    /** Pone al vehículo 0 en su carril, yendo al este por la fila 4 hacia el cruce (4,4): tramo de (4,0) a (4,4) de su ruta. */
+    private static Vehiculo vehiculoAlEste(Trafico trafico) {
+        Vehiculo v = trafico.getVehiculos().get(0);
+        v.siguiente = 2; // Hacia el waypoint (4,4).
+        v.x = Mapa.centro(0) + 5; // Poco después del cruce (4,0).
+        v.z = Mapa.centro(4) + Vehiculo.DESPLAZAMIENTO_CARRIL; // Carril derecho de quien va al este.
+        v.angulo = -(float) Math.PI / 2; // Frente (1, 0): al este.
+        return v;
+    }
+
+    /**
+     * El vehículo 0 va al este por la fila 4 hacia el cruce (4,4): grupo este-oeste, rojo cuando tiempo ∈ [7, 14) del ciclo.
+     * Con rojo se detiene ANTES de la línea (sin cruzarla y sin frenar más fuerte que DESACELERACION); al pasar a verde
+     * (tiempo = 14) vuelve a arrancar y cruza la línea.
+     */
+    public void testSeDetieneEnRojoYReanudaEnVerde() {
+        Trafico trafico = nuevoTrafico();
+        Vehiculo v = vehiculoAlEste(trafico);
+        float tiempo = Semaforo.DESFASE_ESTE_OESTE; // 7: justo empieza el rojo del grupo este-oeste.
+        assertEquals(Semaforo.ROJA, Semaforo.luzParaAcceso(tiempo, false));
+        float anterior = v.getVelocidad();
+        while (tiempo < Semaforo.CICLO - DT) { // Todo el rojo.
+            trafico.actualizar(DT, LEJOS, LEJOS, tiempo);
+            tiempo += DT;
+            assertTrue("cruzó en rojo, x=" + v.getX(), v.getX() <= lineaEste() - Vehiculo.RADIO_VEHICULO + TOLERANCIA);
+            assertTrue(anterior - v.getVelocidad() <= Vehiculo.DESACELERACION * DT + TOLERANCIA); // Frenada suave.
+            anterior = v.getVelocidad();
+        }
+        assertEquals(0f, v.getVelocidad(), 0.2f); // Esperando (casi) detenido: se frena de a poco hasta la línea...
+        assertTrue(v.getX() > lineaEste() - 5 * Vehiculo.RADIO_VEHICULO); // ...cerca de la línea, no a mitad de cuadra.
+        float parado = v.getX();
+        for (int i = 0; i < 4 * 60; i++) { // 4 s de verde (el verde dura 5).
+            trafico.actualizar(DT, LEJOS, LEJOS, tiempo);
+            tiempo += DT;
+            if (i < 90) { // Primer segundo y medio: recta, antes de la curva del cruce (que limita la velocidad por su cuenta).
+                assertTrue(v.getVelocidad() - anterior <= Vehiculo.ACELERACION_TRAFICO * DT + TOLERANCIA); // Arranque suave.
+            }
+            anterior = v.getVelocidad();
+        }
+        assertTrue(v.getX() > lineaEste() + Vehiculo.RADIO_VEHICULO); // Reanudó y cruzó la línea.
+        assertTrue(v.getX() > parado);
+    }
+
+    /**
+     * Con rojo fijo el vehículo espera detenido ante la línea, pero no para siempre: pasado ESPERA_MAXIMA_SEMAFORO
+     * (contada desde que se detiene, unos segundos después de llegar) se salta la luz y sigue su camino.
+     */
+    public void testEsperaMaximaAnteRojoPermanente() {
+        Trafico trafico = nuevoTrafico();
+        Vehiculo v = vehiculoAlEste(trafico);
+        float rojoFijo = Semaforo.DESFASE_ESTE_OESTE; // Instante de rojo para el grupo este-oeste; no avanza.
+        float tCruce = -1; // Segundo en que cruza la línea.
+        for (int i = 0; i < Math.round(80 / DT); i++) {
+            trafico.actualizar(DT, LEJOS, LEJOS, rojoFijo);
+            if (tCruce < 0 && v.getX() > lineaEste() - Vehiculo.RADIO_VEHICULO + TOLERANCIA) { // Su frente pasó la línea.
+                tCruce = i * DT;
+            }
+            if (tCruce < 0) { // Mientras espera, no pasa la línea ni invade el cruce.
+                assertTrue(v.getX() <= lineaEste() - Vehiculo.RADIO_VEHICULO + TOLERANCIA);
+            }
+        }
+        assertTrue("nunca cruzó la línea", tCruce > 0);
+        assertTrue("cruzó antes de agotar la espera: t=" + tCruce, tCruce >= Vehiculo.ESPERA_MAXIMA_SEMAFORO);
+        assertTrue("esperó de más: t=" + tCruce, tCruce <= Vehiculo.ESPERA_MAXIMA_SEMAFORO + 15);
+    }
+
+    /** Con verde no hay obstáculo; con rojo muy cerca de la línea (no alcanza a frenar) tampoco: pasa. */
+    public void testHuecoSemaforo() {
+        Trafico trafico = nuevoTrafico();
+        Vehiculo v = vehiculoAlEste(trafico); // Está lejos de la línea del cruce (4,4).
+        assertEquals(Vehiculo.SIN_OBSTACULO, v.huecoSemaforo(7f)); // Rojo, pero aún fuera de la zona de frenado.
+        v.x = lineaEste() - Vehiculo.RADIO_VEHICULO - 5; // A 5 de la línea, a velocidad de crucero.
+        assertEquals(Vehiculo.SIN_OBSTACULO, v.huecoSemaforo(0f)); // Verde: sigue.
+        assertEquals(5f, v.huecoSemaforo(7f), 1e-3f); // Rojo: debe parar.
+        v.x = lineaEste() - Vehiculo.RADIO_VEHICULO - 1; // A 1: 7² / 16 = 3 > 1, no alcanza a frenar.
+        assertEquals(Vehiculo.SIN_OBSTACULO, v.huecoSemaforo(7f)); // Pasa.
     }
 
     /** El jugador no puede meterse dentro de un vehículo, pero sí alejarse de él. */

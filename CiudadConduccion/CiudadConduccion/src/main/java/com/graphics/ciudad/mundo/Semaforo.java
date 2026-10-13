@@ -10,7 +10,9 @@ import java.util.List; // Tipo de esa lista.
  * SEMAFORO: cabezal de semáforo animado (base, poste, caja, tres lentes redondas y sus viseras).
  * Responsable de: calcular qué lente está encendida según el reloj global del juego (ciclo de CICLO = 14 segundos,
  * con duraciones en constantes), coordinar los dos grupos de accesos de una intersección y dibujar un cabezal
- * orientado hacia los autos que se acercan. Los semáforos son visuales: ni el tráfico ni el jugador se detienen en rojo.
+ * orientado hacia los autos que se acercan. Para el JUGADOR los semáforos son solo visuales: no se detiene en rojo. El
+ * tráfico NPC sí los respeta: Vehiculo.huecoSemaforo() consulta luzParaAcceso() con el reloj global y frena ante la línea
+ * de detención con rojo (o amarillo, si aún alcanza a frenar con comodidad). Esta clase no cambia por eso.
  * Se comunica con: Senalizacion (ubica un cabezal por acceso en las intersecciones del Centro y le pasa el reloj
  * global de Juego), Cubo y Figuras (dibujan) y Shader (uEmision hace que la lente activa se vea encendida y
  * uRotacion pone de frente las lentes e inclina las viseras).

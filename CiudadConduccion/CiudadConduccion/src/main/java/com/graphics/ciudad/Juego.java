@@ -236,7 +236,7 @@ public class Juego {
             && !trafico.bloquea(auto.getX(), auto.getZ(), nx, nz, Auto.RADIO_AUTO);
         auto.actualizar(deltaTime, teclado, libre, !iluminacion.esNoche()); // Aceleración, giro, colisiones y sombra solar, de día.
         marcas.actualizar(deltaTime, auto); // Agrega o desvanece huellas (con dt 0 en pausa no cambia nada).
-        trafico.actualizar(deltaTime, auto.getX(), auto.getZ()); // Mueve los vehículos; frenan si el jugador les cierra el carril.
+        trafico.actualizar(deltaTime, auto.getX(), auto.getZ(), relojGlobal); // Mueve los vehículos; frenan ante el jugador y los semáforos.
         actualizarTitulo(); // Muestra los controles y la velocidad actual.
         particulas.actualizar(deltaTime); // Avanza las partículas vivas (con dt 0 en pausa no se mueven ni nacen otras).
         particulas.emitirHumo(deltaTime, auto.getX(), auto.getZ(), auto.getAngulo(), auto.getVelocidad()); // Más humo cuanto más rápido.

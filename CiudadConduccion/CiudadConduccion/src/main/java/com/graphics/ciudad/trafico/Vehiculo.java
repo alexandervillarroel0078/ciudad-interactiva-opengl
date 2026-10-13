@@ -2,6 +2,8 @@ package com.graphics.ciudad.trafico; // Agrupa el tráfico autónomo: vehículos
 
 import com.graphics.ciudad.iluminacion.Sombras; // Sombra de los edificios sobre el vehículo: objetivo y suavizado del factor solar.
 import com.graphics.ciudad.mundo.Mapa; // Aporta el ancho de la calle para calcular el carril.
+import com.graphics.ciudad.mundo.Semaforo; // Color de la luz que ve cada acceso en un instante.
+import com.graphics.ciudad.mundo.Senalizacion; // Cruces con semáforo y a qué distancia del centro está la línea de detención.
 import com.graphics.ciudad.motor.Cubo; // Dibuja cada pieza del vehículo.
 import com.graphics.ciudad.motor.Figuras; // Cilindros de las ruedas (los dibuja Rueda).
 import com.graphics.ciudad.motor.Shader; // Activa la emisión de las luces traseras de noche y gira las ruedas (uRotacion).
@@ -33,6 +35,11 @@ import java.util.function.BooleanSupplier; // Pregunta a Iluminacion si es de no
  * sigue siendo inmediata, para no abrir el giro). Con otro vehículo se mira además su trayectoria de los próximos
  * PREVISION segundos. Mientras la velocidad baja, las luces de freno se encienden con las mismas reglas que el jugador
  * (LucesVehiculo: el freno domina).
+ * SEMÁFOROS: la línea de detención de cada acceso es la del poste (LINEA_DETENCION del centro del cruce, antes del paso
+ * peatonal). huecoSemaforo() la trata como un obstáculo fijo: con rojo (o amarillo, si aún puede frenar con comodidad)
+ * el hueco hasta la línea entra en el mismo frenado gradual de arriba; con verde, o ya pasada la línea, no hay obstáculo.
+ * Si está tan cerca que no alcanza a frenar, pasa (en vez de clavar los frenos). Para que nunca quede parado para
+ * siempre, tras ESPERA_MAXIMA_SEMAFORO segundos detenido ante una luz ignora ese semáforo hasta cruzar la línea.
  * RUEDAS: las mismas que el jugador (vehiculo/Rueda). Giran sobre su eje lo que el vehículo avanzó DE VERDAD en el
  * cuadro (anguloRueda += paso / RADIO_RUEDA): si frena, giran más lento, y detenido no giran. Las delanteras doblan
  * según el giro que el vehículo hace en ese momento (ver direccionPorGiro): en recta vuelven a 0.
@@ -60,6 +67,12 @@ public class Vehiculo {
     public static final float PREVISION = 1.5f; // Segundos hacia adelante que se mira la trayectoria de OTRO vehículo.
     public static final int MUESTRAS_PREVISION = 6; // Puntos en que se divide ese intervalo (cada 0.25 s).
 
+    // ==================== 1a'. SEMÁFOROS (valores ajustables) ====================
+    // La zona de frenado ante la línea es la misma de los obstáculos: DISTANCIA_FRENADO y DISTANCIA_DETENCION.
+    public static final float LINEA_DETENCION = Mapa.TAM_CELDA / 2 + Senalizacion.RETROCESO_SEMAFORO; // Del centro del cruce a la línea: 8.5, donde está el poste.
+    public static final float DESACELERACION_AMARILLO = 4; // Frenada "cómoda" (u/s²): con amarillo solo frena si le alcanza con esta.
+    public static final float ESPERA_MAXIMA_SEMAFORO = 20; // Segundos detenido ante una luz tras los cuales se la salta (el rojo dura 7).
+
     // ==================== 1b. LUCES DEL VEHÍCULO (valores ajustables) ====================
     // Ubicación, tamaño y colores de faros y luces traseras: están en vehiculo/LucesVehiculo, compartidos con el auto
     // del jugador. De noche muestra luces de posición; al frenar, rojo intenso de día y de noche (el freno domina).
@@ -79,6 +92,8 @@ public class Vehiculo {
     int siguiente; // Índice del waypoint hacia el que se dirige.
     float velocidadPermitida; // Velocidad que deja el obstáculo más cercano; cambia de a poco (frenado gradual).
     boolean frenando; // true mientras la velocidad baja (o espera detenido ante un obstáculo): luces de freno.
+    float esperaSemaforo; // Segundos seguidos detenido ante una luz que lo frena.
+    boolean ignorandoSemaforo; // true tras agotar la espera máxima: no obedece ese semáforo hasta cruzar la línea.
     float anguloRueda; // Cuánto giró cada rueda sobre su eje, en radianes (crece al avanzar).
     float anguloDireccion; // Giro de las ruedas delanteras respecto del vehículo (positivo = izquierda).
     float factorSombraSol = 1f; // 1 = sol pleno; baja hacia Sombras.FACTOR_SOMBRA_SOL bajo la sombra de un edificio (suavizado en actualizar()).
@@ -145,6 +160,8 @@ public class Vehiculo {
         velocidad = velocidadCrucero; // Arranca a velocidad de crucero.
         velocidadPermitida = velocidadCrucero; // Sin obstáculos al empezar.
         frenando = false; // Sin luces de freno.
+        esperaSemaforo = 0; // Sin espera acumulada.
+        ignorandoSemaforo = false; // Vuelve a obedecer los semáforos.
         anguloRueda = 0; // Ruedas en su posición inicial.
         anguloDireccion = 0; // Delanteras derechas.
         factorSombraSol = 1f; // Vuelve a sol pleno: el primer waypoint no está bajo ningún edificio.
@@ -154,9 +171,17 @@ public class Vehiculo {
 
     /**
      * Avanza el vehículo deltaTime segundos. hueco es el espacio libre hasta el obstáculo más cercano de su corredor
-     * (ver huecoHasta), o SIN_OBSTACULO. Trafico lo calcula para todos antes de mover a ninguno.
+     * (ver huecoHasta), o SIN_OBSTACULO. Trafico lo calcula para todos antes de mover a ninguno. huecoSemaforo es el
+     * hueco hasta la línea de detención de un semáforo que lo obliga a parar (ver huecoSemaforo), o SIN_OBSTACULO; se
+     * combina con el otro quedándose con el menor, así el semáforo y los obstáculos comparten el mismo frenado gradual.
      */
     public void actualizar(float deltaTime, float hueco) {
+        actualizar(deltaTime, hueco, SIN_OBSTACULO); // Sin semáforo de por medio.
+    }
+
+    /** Como la anterior, con el hueco hasta la línea de un semáforo que lo obliga a parar. */
+    public void actualizar(float deltaTime, float hueco, float huecoSemaforo) {
+        hueco = Math.min(hueco, aplicarEsperaMaxima(deltaTime, huecoSemaforo)); // El obstáculo más cercano, semáforo incluido.
         float[] tramo = tramoCarril(); // {inicioX, inicioZ, dirX, dirZ, largo, avance} del tramo actual del carril.
         if (tramo[4] - tramo[5] < RADIO_WAYPOINT) { // Comprueba si ya llegó: le falta menos que RADIO_WAYPOINT.
             siguiente = (siguiente + 1) % ruta.length; // Pasa al siguiente waypoint; el módulo hace la ruta cíclica.
@@ -222,6 +247,68 @@ public class Vehiculo {
 
         float objetivoSombra = Sombras.objetivoFactorSombraSol(x, z, !esNoche.getAsBoolean()); // 1, o FACTOR_SOMBRA_SOL bajo un edificio.
         factorSombraSol = Sombras.suavizarFactorSombraSol(factorSombraSol, objetivoSombra, deltaTime); // Sin saltos al entrar o salir.
+    }
+
+    /**
+     * Hueco hasta la línea de detención del semáforo que tiene adelante, o SIN_OBSTACULO si puede seguir. El cruce cuenta
+     * si está en su calle (|lateral| < media calle), la línea está adelante (hueco ≥ 0: si ya la cruzó, sigue) y a menos
+     * de DISTANCIA_FRENADO. La luz es la del grupo de su tramo: norte-sur si avanza más en Z que en X. Con verde sigue;
+     * con rojo o amarillo se detiene, salvo que ya no alcance a frenar: el rojo se mide con DESACELERACION (máxima) y el
+     * amarillo con DESACELERACION_AMARILLO (cómoda), con la distancia de frenado v² / (2 · a). tiempo es el reloj global.
+     */
+    public float huecoSemaforo(float tiempo) {
+        float[] tramo = tramoCarril(); // Dirección del tramo del carril: {.., .., dirX, dirZ, ..}.
+        float dirX = tramo[2]; // Hacia dónde avanza, en X.
+        float dirZ = tramo[3]; // Y en Z.
+        float hueco = SIN_OBSTACULO; // El cruce con semáforo más cercano por delante.
+        for (int[] cruce : Senalizacion.INTERSECCIONES_SEMAFORO) { // Cruces de {fila, columna}.
+            float haciaX = Mapa.centro(cruce[1]) - x; // Del vehículo al centro del cruce, en X.
+            float haciaZ = Mapa.centro(cruce[0]) - z; // Y en Z.
+            float adelante = haciaX * dirX + haciaZ * dirZ; // Cuánto falta hasta el centro, a lo largo de su calle.
+            float lateral = haciaX * dirZ - haciaZ * dirX; // Cuánto se aparta de esa calle de lado.
+            if (Math.abs(lateral) >= Mapa.TAM_CELDA / 2) { // Otra calle: ese semáforo no es para él.
+                continue;
+            }
+            float h = adelante - LINEA_DETENCION - RADIO_VEHICULO; // Espacio libre hasta la línea (como el hueco de un obstáculo).
+            if (h >= 0 && h < DISTANCIA_FRENADO) { // Línea por delante y dentro de la zona de frenado.
+                hueco = Math.min(hueco, h);
+            }
+        }
+        if (hueco == SIN_OBSTACULO) { // Sin cruces por delante.
+            return SIN_OBSTACULO;
+        }
+        int luz = Semaforo.luzParaAcceso(tiempo, Math.abs(dirZ) > Math.abs(dirX)); // Luz de su acceso ahora.
+        if (luz == Semaforo.VERDE) { // Verde: sigue normal.
+            return SIN_OBSTACULO;
+        }
+        float frenada = luz == Semaforo.ROJA ? DESACELERACION : DESACELERACION_AMARILLO; // Cuánto está dispuesto a frenar.
+        if (hueco < velocidad * velocidad / (2 * frenada)) { // Muy cerca para detenerse a tiempo: pasa.
+            return SIN_OBSTACULO;
+        }
+        return hueco; // Debe parar antes de la línea.
+    }
+
+    /**
+     * Devuelve el hueco de semáforo que realmente se obedece. Cuenta cuánto lleva detenido ante una luz; pasado
+     * ESPERA_MAXIMA_SEMAFORO lo ignora (ignorandoSemaforo) hasta que ya no haya semáforo que lo frene (verde, o línea
+     * cruzada), y recién ahí vuelve a obedecer. Así ningún bloqueo (p. ej. dos vehículos esperándose en el cruce) dura más.
+     */
+    private float aplicarEsperaMaxima(float deltaTime, float huecoSemaforo) {
+        if (huecoSemaforo == SIN_OBSTACULO) { // Nada lo frena: reinicia la espera y vuelve a obedecer.
+            esperaSemaforo = 0;
+            ignorandoSemaforo = false;
+            return SIN_OBSTACULO;
+        }
+        if (ignorandoSemaforo) { // Ya se agotó la espera: sigue hasta cruzar la línea.
+            return SIN_OBSTACULO;
+        }
+        esperaSemaforo = velocidad < UMBRAL_DETENIDO ? esperaSemaforo + deltaTime : 0; // Suma solo mientras está detenido.
+        if (esperaSemaforo > ESPERA_MAXIMA_SEMAFORO) { // Esperó demasiado.
+            ignorandoSemaforo = true;
+            esperaSemaforo = 0;
+            return SIN_OBSTACULO;
+        }
+        return huecoSemaforo;
     }
 
     /**
