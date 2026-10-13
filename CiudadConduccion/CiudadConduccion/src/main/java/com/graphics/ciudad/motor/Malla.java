@@ -69,6 +69,7 @@ public class Malla {
         shader.vector("uEscala", sx, sy, sz); // Envía el tamaño en cada eje.
         shader.vector("uColor", r, g, b); // Envía el color del material.
         shader.decimal("uGiro", angulo); // Envía la orientación en radianes.
+        Estadisticas.contarLlamada(); // Un draw call más para el HUD.
         glDrawArrays(GL_TRIANGLES, 0, cantidadVertices()); // Dibuja todos los triángulos de la figura.
     }
 

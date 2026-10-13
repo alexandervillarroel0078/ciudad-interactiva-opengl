@@ -1,5 +1,6 @@
 package com.graphics.ciudad.interfaz; // Agrupa la interfaz dentro de la ventana: dibujo 2D y HUD.
 
+import com.graphics.ciudad.motor.Estadisticas; // Cuenta su draw call para el HUD.
 import com.graphics.ciudad.motor.Shader; // Programa GLSL propio del HUD (hud.vert / hud.frag).
 import com.graphics.ciudad.motor.Texto; // Conversión a ASCII compartida con los carteles 3D.
 import java.nio.ByteBuffer; // Memoria nativa donde STBEasyFont escribe los vértices del texto.
@@ -130,6 +131,7 @@ public class Dibujo2D {
         shader.decimal("uEscala", escala); // Tamaño del dibujo.
         shader.vector4("uColor", r, g, b, a); // Color con transparencia.
         glBufferData(GL_ARRAY_BUFFER, vertices, GL_STREAM_DRAW); // Reemplaza el contenido: se usa una sola vez.
+        Estadisticas.contarLlamada(); // Un draw call más (el HUD se dibuja después de leer el total).
         glDrawArrays(GL_TRIANGLES, 0, vertices.length / 2); // Cada vértice ocupa dos float.
     }
 

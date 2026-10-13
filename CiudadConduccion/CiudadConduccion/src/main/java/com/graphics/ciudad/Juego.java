@@ -10,6 +10,7 @@ import com.graphics.ciudad.juego.Entregas; // Reglas y progreso de la partida.
 import com.graphics.ciudad.juego.Minimapa; // Segundo pase de dibujo desde arriba.
 import com.graphics.ciudad.motor.Camara; // Cámara de seguimiento y aérea.
 import com.graphics.ciudad.motor.Cubo; // Geometría compartida (VAO/VBO).
+import com.graphics.ciudad.motor.Estadisticas; // FPS promediados y draw calls por cuadro, para el HUD.
 import com.graphics.ciudad.motor.Figuras; // Esfera, cilindro y cono (mallas redondeadas).
 import com.graphics.ciudad.motor.Shader; // Programa GLSL y envío de uniforms.
 import com.graphics.ciudad.motor.SistemaParticulas; // Humo del auto, fuentes de los parques y lluvia.
@@ -71,6 +72,7 @@ public class Juego {
     private final Hud hud = new Hud(); // Panel de estado, ayuda (H), cartel de pausa y menú de inicio.
     private final EstadoPartida estado = new EstadoPartida(); // Arranca en el menú; ENTER empieza y P pausa.
     private IntPredicate teclado = ventana::pulsada; // Teclas mantenidas; por defecto las lee de la ventana GLFW.
+    private final Estadisticas estadisticas = new Estadisticas(); // FPS (promedio de 0.5 s); los draw calls son un contador estático.
     private float relojGlobal = 0; // Segundos desde el arranque; no se detiene al ganar ni se reinicia con R. Anima los semáforos.
 
     // ==================== 2. INICIO, CICLO Y LIMPIEZA ====================
@@ -113,6 +115,7 @@ public class Juego {
             ventana.procesarEventos(); // Entrada: procesa teclado, redimensionamiento y botón de cierre.
             double tiempoActual = glfwGetTime(); // Consulta el tiempo actual en segundos.
             float deltaTime = (float) Math.min(tiempoActual - tiempoAnterior, DT_MAXIMO); // Evita saltos de más de 50 ms.
+            estadisticas.registrarCuadro((float) (tiempoActual - tiempoAnterior)); // FPS con el tiempo real, también en pausa.
             tiempoAnterior = tiempoActual; // Conserva el instante de este cuadro para la próxima vuelta.
             actualizar(deltaTime); // Actualiza conducción y entregas.
             ventana.actualizarTamano(); // Obtiene los píxeles reales del framebuffer tras un posible redimensionamiento.
@@ -230,6 +233,7 @@ public class Juego {
 
     /** Prepara OpenGL, dibuja la vista principal y después el minimapa. */
     private void dibujarFrame() {
+        Estadisticas.reiniciarLlamadas(); // Los draw calls se cuentan desde cero en cada cuadro.
         int ancho = ventana.ancho(); // Ancho actual del framebuffer en píxeles.
         int alto = ventana.alto(); // Alto actual del framebuffer en píxeles.
         glViewport(0, 0, ancho, alto); // Utiliza toda el área de la ventana para la escena principal.
@@ -274,7 +278,9 @@ public class Juego {
             "Destino: " + entregas.nombreDestino(), // Parada activa (marca dorada).
             "Sector: " + Mapa.nombreSector(auto.getX(), auto.getZ()), // Zona de la ciudad donde está el auto.
             "Cámara: " + camara.nombreModo(), // Modo de cámara actual (tecla C).
-            "H: ayuda   P: pausa" // Recordatorio de las teclas de la interfaz.
+            "H: ayuda   P: pausa", // Recordatorio de las teclas de la interfaz.
+            "FPS: " + estadisticas.getFps(), // Promedio de los últimos 0.5 s.
+            "Draw calls: " + Estadisticas.getLlamadas() // Vista principal + minimapa de este cuadro (sin el propio HUD).
         };
         dibujo2D.comenzar(ancho, alto); // Desactiva la profundidad, activa la mezcla y usa el shader del HUD.
         try { // Asegura que el estado 3D se restaure aunque falle el dibujo.

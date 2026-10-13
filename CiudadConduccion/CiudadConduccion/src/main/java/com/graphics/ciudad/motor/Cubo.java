@@ -133,6 +133,7 @@ public class Cubo {
         shader.vector("uEscala", sx, sy, sz); // Envía el ancho, alto y profundidad de la caja.
         shader.vector("uColor", r, g, b); // Envía las intensidades roja, verde y azul del material.
         shader.decimal("uGiro", angulo); // Envía la orientación en radianes.
+        Estadisticas.contarLlamada(); // Un draw call más para el HUD.
         glDrawArrays(GL_TRIANGLES, 0, 36); // Dibuja 12 triángulos: dos por cada una de las seis caras.
     }
 }
