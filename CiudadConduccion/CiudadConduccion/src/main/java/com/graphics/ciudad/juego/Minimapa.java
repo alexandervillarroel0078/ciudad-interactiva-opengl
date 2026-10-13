@@ -1,6 +1,7 @@
 package com.graphics.ciudad.juego; // Agrupa las reglas de la partida y el minimapa.
 
 import com.graphics.ciudad.motor.Cubo; // Dibuja el indicador del auto.
+import com.graphics.ciudad.motor.Estadisticas; // Cuenta sus draw calls como MINIMAPA.
 import com.graphics.ciudad.motor.Shader; // Cambia la proyección del shader con uMapa.
 import com.graphics.ciudad.mundo.Edificio; // Altura del edificio más alto: las marcas van por encima.
 import com.graphics.ciudad.mundo.Mapa; // Aporta el límite de la ciudad para encuadrar el minimapa.
@@ -104,12 +105,14 @@ public class Minimapa {
         // todos los triángulos en pantalla, así que las caras frontales pasan a verse en sentido horario.
         glFrontFace(GL_CW);
         shader.decimal("uMitadMapa", Mapa.LIMITE + MARGEN_MAPA); // Encuadra la ciudad completa, sea cual sea el tamaño de MAPA.
+        Estadisticas.forzarCategoria(Estadisticas.MINIMAPA); // Todo el segundo pase cuenta como minimapa.
         vistaMapa = true; // Indica a Juego.escena() que omita decoración pequeña y baliza flotante.
         try { // Asegura que el estado de dibujo se restaure incluso si el segundo pase falla.
             escena.run(); // Dibuja otra vez la misma ciudad, ahora vista desde arriba.
             dibujarDivisionesSectores(); // Marca los límites de los sectores con nombre definidos en Mapa.
             dibujarIndicadorAuto(auto); // Resalta la posición y el frente del jugador en el mapa.
         } finally { // El siguiente cuadro debe volver a la configuración de pantalla completa.
+            Estadisticas.liberarCategoria();
             vistaMapa = false; // Reactiva los detalles de la escena principal.
             shader.entero("uMapa", 0); // Recupera la proyección en perspectiva.
             glFrontFace(GL_CCW); // Y el sentido de giro normal de la vista principal.

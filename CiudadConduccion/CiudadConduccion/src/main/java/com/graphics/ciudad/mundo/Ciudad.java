@@ -1,6 +1,7 @@
 package com.graphics.ciudad.mundo; // Agrupa lo que forma la ciudad: mapa, edificios, decoración y semáforos.
 
 import com.graphics.ciudad.motor.Cubo; // Dibuja cada elemento como una caja transformada.
+import com.graphics.ciudad.motor.Estadisticas; // Categoría de cada draw call (desglose de F5).
 import com.graphics.ciudad.motor.Figuras; // Cilindro y prisma para los techos de los edificios.
 import java.util.ArrayList; // Lista de marcas viales.
 import java.util.List; // Tipo de la lista de marcas viales.
@@ -32,12 +33,14 @@ public class Ciudad {
 
     /** Recorre el mapa y transforma cada celda en geometría. */
     public void dibujar() {
+        Estadisticas.fijarCategoria(Estadisticas.CALLES); // Base de asfalto y líneas de las calles.
         cubo.caja(0, -0.25f, 0, Mapa.TAMANO, 0.5f, Mapa.TAMANO, 0.16f, 0.19f, 0.23f); // Dibuja la base de asfalto con su cara superior en Y=0.
         for (int fila = 0; fila < Mapa.MAPA.length; fila++) { // Recorre el mapa de norte a sur.
             for (int columna = 0; columna < Mapa.MAPA[fila].length; columna++) { // Recorre cada fila de izquierda a derecha.
                 float x = Mapa.centro(columna); // Convierte la columna a posición X.
                 float z = Mapa.centro(fila); // Convierte la fila a posición Z.
                 int tipo = Mapa.tipo(fila, columna); // Lee si la celda es calle, edificio o parque.
+                Estadisticas.fijarCategoria(tipo == Mapa.CALLE ? Estadisticas.CALLES : tipo == Mapa.EDIFICIO ? Estadisticas.EDIFICIOS : Estadisticas.ARBOLES_PARQUES); // Origen de los draw calls de esta celda.
                 if (tipo == Mapa.CALLE) { // Selecciona las celdas transitables.
                     dibujarMarcasCalle(fila, columna, x, z); // Añade líneas amarillas entre intersecciones.
                 } else { // Las demás celdas representan manzanas completas.

@@ -1,6 +1,7 @@
 package com.graphics.ciudad.iluminacion; // Agrupa el estado de las luces de la escena.
 
 import com.graphics.ciudad.motor.Cubo; // Cada sombra es una caja muy fina.
+import com.graphics.ciudad.motor.Estadisticas; // Cuenta sus draw calls como SOMBRAS.
 import com.graphics.ciudad.motor.Figuras; // Mallas redondeadas: las reutilizan los árboles, las farolas y los edificios.
 import com.graphics.ciudad.motor.Shader; // Modo sombra (uSombra), forma y opacidad.
 import com.graphics.ciudad.mundo.Basureros; // Cestos de basura.
@@ -224,6 +225,7 @@ public class Sombras {
         boolean manchasDeNoche = !planarDeDia || factorNoche > 0; // Manchas de edificios, árboles de parque y autos.
         float alfaFija = ALFA_SOMBRA_DIA + (ALFA_SOMBRA_NOCHE - ALFA_SOMBRA_DIA) * factorNoche; // Manchas que siempre existen.
         float alfaNoche = planarDeDia ? ALFA_SOMBRA_NOCHE * factorNoche : ALFA_SOMBRA_NOCHE; // Manchas que reemplaza la planar.
+        Estadisticas.forzarCategoria(Estadisticas.SOMBRAS); // Manchas y sombra planar (que reutiliza edificios, árboles, farolas y autos) cuentan juntas.
         glEnable(GL_BLEND); // Activa la mezcla: la sombra se combina con el suelo.
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // final = sombra · alfa + suelo · (1 - alfa).
         glDepthMask(false); // Prueba la profundidad, pero no la escribe (ver comentario de la clase).
@@ -259,6 +261,7 @@ public class Sombras {
             glDepthMask(true); // Vuelve a escribir profundidad.
             glDisable(GL_BLEND); // La escena 3D es opaca: sin mezcla.
             glEnable(GL_CULL_FACE); // Deja el culling activo como lo espera el resto del cuadro.
+            Estadisticas.liberarCategoria();
         }
     }
 

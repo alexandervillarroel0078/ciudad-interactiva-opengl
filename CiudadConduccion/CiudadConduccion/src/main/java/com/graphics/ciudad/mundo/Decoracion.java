@@ -1,6 +1,7 @@
 package com.graphics.ciudad.mundo; // Agrupa lo que forma la ciudad: mapa, edificios, decoración y semáforos.
 
 import com.graphics.ciudad.motor.Cubo; // Dibuja ventanas y franjas.
+import com.graphics.ciudad.motor.Estadisticas; // Categoría de cada draw call (desglose de F5).
 import com.graphics.ciudad.motor.Figuras; // Esfera, cilindro y cono para los parques.
 import com.graphics.ciudad.motor.Shader; // Activa la emisión de las ventanas nocturnas.
 import java.util.ArrayList; // Lista de ubicaciones de los pasos peatonales.
@@ -151,6 +152,7 @@ public class Decoracion {
                 float z = Mapa.centro(fila); // Obtiene el centro de la parcela en profundidad.
                 int tipo = Mapa.tipo(fila, columna); // Lee el contenido de la celda.
                 if (tipo == Mapa.PARQUE) { // Detecta una parcela de parque.
+                    Estadisticas.fijarCategoria(Estadisticas.ARBOLES_PARQUES); // Senderos, fuente, árboles y bancos.
                     parque.dibujar(fila, columna, noche); // Añade senderos, fuente, árboles y bancos propios de este parque.
                 }
                 if (tipo == Mapa.EDIFICIO) { // Detecta una parcela con edificio.
@@ -158,10 +160,13 @@ public class Decoracion {
                 }
             }
         }
+        Estadisticas.fijarCategoria(Estadisticas.FAROLAS_SENALES); // Semáforos, PARE y carteles.
         senalizacion.dibujar(tiempo); // Semáforos del Centro, PARE y carteles de sector, en sus ubicaciones calculadas.
         for (float[] paso : UBICACIONES_PASOS) { // Los pasos se dibujan una vez cada uno, desde la lista.
+            Estadisticas.fijarCategoria(Estadisticas.CALLES); // Pintura del paso sobre el asfalto.
             dibujarPasoPeatonal(paso[0], paso[1], paso[2] == 1); // Añade el cruce pintado de vereda a vereda.
         }
+        Estadisticas.fijarCategoria(Estadisticas.OTROS); // Cestos de basura.
         basureros.dibujar(); // Cestos de basura: parques, esquinas con paso y negocios.
     }
 

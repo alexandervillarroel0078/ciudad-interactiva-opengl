@@ -76,6 +76,8 @@ public class Juego {
     private IntPredicate teclado = ventana::pulsada; // Teclas mantenidas; por defecto las lee de la ventana GLFW.
     private final Estadisticas estadisticas = new Estadisticas(); // FPS (promedio de 0.5 s); los draw calls son un contador estático.
     private boolean mostrarEstadisticas = true; // F3: muestra u oculta las líneas de FPS y draw calls del HUD.
+    private boolean desgloseEnConsola = false; // F5: imprime en la consola los draw calls por origen (no toca el HUD).
+    private double proximaImpresion = 0; // glfwGetTime() a partir del cual toca imprimir.
     private float relojGlobal = 0; // Segundos desde el arranque; no se detiene al ganar ni se reinicia con R. Anima los semáforos.
 
     // ==================== 2. INICIO, CICLO Y LIMPIEZA ====================
@@ -124,6 +126,10 @@ public class Juego {
             ventana.actualizarTamano(); // Obtiene los píxeles reales del framebuffer tras un posible redimensionamiento.
             if (ventana.ancho() > 0 && ventana.alto() > 0) { // Evita dibujar y dividir por cero cuando la ventana está minimizada.
                 dibujarFrame(); // Genera la imagen de la ciudad para este cuadro.
+                if (desgloseEnConsola && tiempoActual >= proximaImpresion) { // Una vez por segundo.
+                    System.out.println(Estadisticas.textoDesglose());
+                    proximaImpresion = tiempoActual + 1;
+                }
             }
             ventana.presentar(); // Muestra la imagen terminada intercambiando los buffers.
             cuadros++; // Registra que se completó una vuelta del ciclo.
@@ -190,6 +196,11 @@ public class Juego {
 
         if (key == GLFW_KEY_F3) { // Líneas de FPS y draw calls del HUD.
             mostrarEstadisticas = !mostrarEstadisticas;
+        }
+
+        if (key == GLFW_KEY_F5) { // Desglose de draw calls por consola, una vez por segundo.
+            desgloseEnConsola = !desgloseEnConsola;
+            proximaImpresion = 0; // Imprime en cuanto termine el próximo cuadro.
         }
 
         if (key == GLFW_KEY_F4) { // V-Sync activado / desactivado.
@@ -268,6 +279,7 @@ public class Juego {
         camara.configurar(shader, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto); // Actualiza la posición y el objetivo de la cámara.
         iluminacion.preparar(auto); // Envía la iluminación: día/noche, faros y posiciones de las farolas.
         trafico.prepararFaros(); // Envía los focos de los faros del tráfico (ninguno de día).
+        Estadisticas.fijarCategoria(Estadisticas.OTROS); // Cielo.
         cielo.dibujar(camara, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto, iluminacion, relojGlobal); // PRIMERO el fondo, sin profundidad: todo lo demás queda delante.
         shader.usar(); // Cielo deja activo su propio programa: vuelve el de la ciudad.
         cubo.enlazar(); // Y su cubo (el del cielo tiene otro VAO).
@@ -275,7 +287,9 @@ public class Juego {
         if (glGetError() != GL_NO_ERROR) { // Comprueba si OpenGL reportó una operación inválida.
             throw new IllegalStateException("Error OpenGL al dibujar"); // Hace visible el problema en consola.
         }
+        Estadisticas.fijarCategoria(Estadisticas.CALLES); // Marcas de frenado sobre el asfalto.
         marcas.dibujar(camara, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto); // Huellas planas sobre el asfalto, sin escribir profundidad.
+        Estadisticas.fijarCategoria(Estadisticas.OTROS); // Humo, fuentes y lluvia.
         particulas.dibujar(camara, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto, 1 - 0.65f * iluminacion.factorNoche()); // Billboards translúcidos, sin escribir profundidad, sobre la escena ya pintada.
         shader.usar(); // Marcas y partículas dejan activo su propio programa: vuelve el de la ciudad.
         cubo.enlazar(); // Y el cubo.
@@ -284,6 +298,7 @@ public class Juego {
         if (glGetError() != GL_NO_ERROR) { // Comprueba que el HUD no haya generado errores OpenGL.
             throw new IllegalStateException("Error OpenGL en el HUD"); // Expone el error en la consola.
         }
+        Estadisticas.cerrarCuadro(); // Guarda el desglose por categoría de este cuadro (lo imprime F5).
     }
 
     /** Dibuja el HUD en un pase ortográfico 2D y restaura el estado de OpenGL para el próximo cuadro. */
@@ -372,16 +387,21 @@ public class Juego {
         if (!minimapa.enVistaMapa()) { // El minimapa muestra solo la ciudad: su escala sigue siendo Mapa.LIMITE.
             entorno.dibujar(); // Campo verde, cordón y árboles de afuera.
         }
+        Estadisticas.fijarCategoria(Estadisticas.AUTOS); // Jugador.
         auto.dibujar(cubo, figuras, shader, cabina, iluminacion.farosEncendidos()); // Añade el vehículo con ruedas que giran y sus luces; los faros siguen a la tecla F (en todas las cámaras y en el minimapa).
         if (camara.esAerea() && !minimapa.enVistaMapa()) { // Desde arriba el auto se ve chico: se marca con una flecha.
+            Estadisticas.fijarCategoria(Estadisticas.OTROS); // Flecha sobre el auto.
             indicador.dibujar(auto.getX(), auto.getZ(), relojGlobal); // En la cámara de seguimiento no hace falta.
         }
+        Estadisticas.fijarCategoria(Estadisticas.AUTOS); // Tráfico (también el jugador de arriba).
         trafico.dibujar(figuras, cabina); // Añade los vehículos autónomos (con sus luces según día/noche); también aparecen en el minimapa.
+        Estadisticas.fijarCategoria(Estadisticas.FAROLAS_SENALES); // Farolas (el tráfico ya dibujó arriba, como AUTOS).
         iluminacion.dibujarFarolas(); // Añade las farolas: base, poste, brazo curvo, pantalla y bombilla.
         if (!minimapa.enVistaMapa()) { // Los detalles pequeños solo son necesarios en la vista principal.
-            decoracion.dibujar(iluminacion.esNocheVisual(), relojGlobal); // Añade árboles, bancos, ventanas y señalización urbana.
+            decoracion.dibujar(iluminacion.esNocheVisual(), relojGlobal); // Fija sus propias categorías por grupo. // Añade árboles, bancos, ventanas y señalización urbana.
         }
         if (entregas.quedanEntregas()) { // Dibuja un objetivo únicamente mientras queden entregas.
+            Estadisticas.fijarCategoria(Estadisticas.OTROS); // Marca dorada y baliza.
             entregas.dibujarDestino(minimapa.enVistaMapa()); // Coloca la marca dorada en la parada activa.
         }
         if (!minimapa.enVistaMapa()) { // Desde arriba, en el minimapa, las manchas (o la sombra planar) solo ensuciarían el plano.

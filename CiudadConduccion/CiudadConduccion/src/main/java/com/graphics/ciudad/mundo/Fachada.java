@@ -1,6 +1,7 @@
 package com.graphics.ciudad.mundo; // Agrupa lo que forma la ciudad: mapa, edificios, decoración y señales.
 
 import com.graphics.ciudad.motor.Cubo; // Ventanas, puertas, vidrieras y toldos son cajas finas.
+import com.graphics.ciudad.motor.Estadisticas; // Categoría de cada draw call (desglose de F5).
 import com.graphics.ciudad.motor.Shader; // Emisión de las ventanas encendidas y las vidrieras de noche.
 import java.util.ArrayList; // Lista de ventanas de cada edificio.
 import java.util.Collections; // Publica las listas sin permitir modificarlas.
@@ -410,6 +411,7 @@ public class Fachada {
 
     /** Dibuja la planta baja de las caras a la calle y las ventanas del edificio de la celda (fila, columna), con centro (x, z). */
     public void dibujar(int fila, int columna, float x, float z, boolean noche) {
+        Estadisticas.fijarCategoria(Estadisticas.EDIFICIOS); // Puertas, vidrieras, toldos...
         UsoPlantaBaja uso = UsoPlantaBaja.de(fila, columna); // Negocio, hall, departamentos o casa.
         int[] garaje = garaje(fila, columna); // {cara, lado} o null.
         for (int cara = 0; cara < Mapa.VECINOS.length; cara++) { // Norte, sur, oeste y este (mismo orden que Mapa.VECINOS).
@@ -435,6 +437,7 @@ public class Fachada {
                     break;
             }
         }
+        Estadisticas.fijarCategoria(Estadisticas.VENTANAS); // Las cajas de las ventanas.
         for (Ventana v : ventanasPorCelda.get(fila * Mapa.MAPA[0].length + columna)) { // Ventanas ya ubicadas.
             float[] c = colorVentana(fila, columna, v, noche); // Vidrio, encendida o apagada.
             shader.entero("uEmision", (int) c[3]); // Las ventanas encendidas simulan habitaciones con luz en el ambiente nocturno.

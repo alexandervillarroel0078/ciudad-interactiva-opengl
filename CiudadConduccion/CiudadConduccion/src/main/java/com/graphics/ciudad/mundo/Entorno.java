@@ -1,6 +1,7 @@
 package com.graphics.ciudad.mundo; // Agrupa lo que forma la ciudad: mapa, edificios, decoración y señales.
 
 import com.graphics.ciudad.motor.Cubo; // Campo y cordón como cajas.
+import com.graphics.ciudad.motor.Estadisticas; // Categoría de cada draw call (desglose de F5).
 import com.graphics.ciudad.motor.Figuras; // Esfera, cilindro y cono de los árboles.
 import java.util.ArrayList; // Lista de árboles del campo.
 import java.util.Collections; // Publica la lista sin permitir modificarla.
@@ -90,6 +91,7 @@ public class Entorno {
 
     /** Dibuja el pasto, el cordón y los árboles del campo. */
     public void dibujar() {
+        Estadisticas.fijarCategoria(Estadisticas.ARBOLES_PARQUES); // Campo, cordón y árboles de afuera.
         dibujarCampo(); // Cuatro franjas verdes.
         dibujarCordon(); // Borde gris alrededor del asfalto.
         for (float[] arbol : ARBOLES) { // Árboles dispersos.
