@@ -25,6 +25,7 @@ import com.graphics.ciudad.vehiculo.Cabina; // Cabina trapezoidal extruida, comp
 import com.graphics.ciudad.vehiculo.Colisiones; // Manzanas y bordes; Juego le suma el tráfico para el deslizamiento.
 import com.graphics.ciudad.vehiculo.MarcasFrenado; // Huellas de goma al frenar fuerte o derrapar.
 import com.graphics.ciudad.vehiculo.IndicadorJugador; // Flecha flotante sobre el auto en la vista aérea.
+import java.util.Locale; // Punto decimal fijo en "Frame: x.xx ms".
 import java.util.Arrays; // Agrega al panel las líneas de FPS y draw calls.
 import java.util.function.IntPredicate; // Pregunta si una tecla está presionada; las pruebas pueden simularlo.
 import org.lwjgl.glfw.GLFWErrorCallback; // Muestra los errores de GLFW en la consola.
@@ -191,6 +192,10 @@ public class Juego {
             mostrarEstadisticas = !mostrarEstadisticas;
         }
 
+        if (key == GLFW_KEY_F4) { // V-Sync activado / desactivado.
+            ventana.alternarVsync();
+        }
+
         iluminacion.tecla(key); // Amplía los controles con N y F; conserva ESC, C y R.
         particulas.tecla(key); // Amplía las teclas con L (lluvia).
         minimapa.tecla(key); // Amplía las teclas con M; conserva salida, cámara, reinicio y luces.
@@ -295,10 +300,12 @@ public class Juego {
             "H: ayuda   P: pausa" // Recordatorio de las teclas de la interfaz.
         };
         String[] lineas = base; // Sin F3 el panel queda como era.
-        if (mostrarEstadisticas) { // F3: agrega dos líneas al final.
-            lineas = Arrays.copyOf(base, base.length + 2);
+        if (mostrarEstadisticas) { // F3: agrega las líneas de rendimiento al final.
+            lineas = Arrays.copyOf(base, base.length + 4);
             lineas[base.length] = "FPS: " + estadisticas.getFps(); // Promedio de los últimos 0.5 s.
-            lineas[base.length + 1] = "Draw calls: " + Estadisticas.getLlamadas(); // Vista principal + minimapa de este cuadro (sin el propio HUD).
+            lineas[base.length + 1] = String.format(Locale.ROOT, "Frame: %.2f ms", estadisticas.getFrameMs()); // Promedio de la misma ventana de 0.5 s.
+            lineas[base.length + 2] = "Draw calls: " + Estadisticas.getLlamadas(); // Vista principal + minimapa de este cuadro (sin el propio HUD).
+            lineas[base.length + 3] = "V-Sync: " + (ventana.vsyncActivo() ? "ON" : "OFF"); // Tecla F4.
         }
         dibujo2D.comenzar(ancho, alto); // Desactiva la profundidad, activa la mezcla y usa el shader del HUD.
         try { // Asegura que el estado 3D se restaure aunque falle el dibujo.

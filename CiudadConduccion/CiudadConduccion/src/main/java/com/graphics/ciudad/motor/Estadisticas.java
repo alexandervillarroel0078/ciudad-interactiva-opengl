@@ -17,6 +17,7 @@ public class Estadisticas {
     private float tiempoAcumulado = 0; // Segundos reales sumados en la ventana actual.
     private int cuadrosAcumulados = 0; // Cuadros dibujados en la ventana actual.
     private int fps = 0; // Último promedio calculado.
+    private float frameMs = 0; // Tiempo medio por cuadro, en milisegundos, sobre la misma ventana que los FPS.
 
     /** Cuenta un draw call; lo llaman Cubo, Malla y Dibujo2D justo antes de cada glDrawArrays. */
     public static void contarLlamada() {
@@ -39,9 +40,15 @@ public class Estadisticas {
         cuadrosAcumulados++; // Y el cuadro mismo.
         if (tiempoAcumulado >= VENTANA_FPS) { // Ventana completa: cuadros / segundos.
             fps = Math.round(cuadrosAcumulados / tiempoAcumulado);
+            frameMs = 1000f * tiempoAcumulado / cuadrosAcumulados; // Segundos por cuadro a milisegundos.
             tiempoAcumulado = 0;
             cuadrosAcumulados = 0;
         }
+    }
+
+    /** Milisegundos por cuadro promediados en la última ventana completa (incluye la espera del V-Sync). */
+    public float getFrameMs() {
+        return frameMs;
     }
 
     /** FPS promediados sobre la última ventana completa (0 hasta que se completa la primera). */

@@ -33,6 +33,7 @@ public class Ventana {
     private double ultimoX; // Última posición X conocida del cursor, en píxeles de la ventana (referencia del mouse-look).
     private double ultimoY; // Última posición Y conocida del cursor (crece hacia abajo).
     private boolean mouseLookActivo = false; // true mientras ORBITAL o AEREA tienen el cursor oculto y capturado.
+    private boolean vsync = true; // Estado actual del V-Sync (glfwSwapInterval 1 = activado, 0 = desactivado).
     private boolean saltoPendienteMouseLook = false; // true en el primer evento de cursor tras activar: solo fija la referencia.
 
     /** Configura GLFW y OpenGL, igual que las clases de cámara del proyecto original. */
@@ -52,7 +53,8 @@ public class Ventana {
         }
         glfwSetWindowSizeLimits(ventana, ANCHO_MINIMO, ALTO_MINIMO, GLFW_DONT_CARE, GLFW_DONT_CARE); // Evita que el HUD y la ayuda se pisen.
         glfwMakeContextCurrent(ventana); // Selecciona la ventana que recibirá las llamadas OpenGL.
-        glfwSwapInterval(1); // Sincroniza la presentación con la pantalla para reducir cortes de imagen.
+        glfwSwapInterval(1); // Sincroniza la presentación con la pantalla para reducir cortes de imagen (V-Sync activado al arrancar).
+        vsync = true;
         GL.createCapabilities(); // Carga las funciones OpenGL del contexto actual.
         glEnable(GL_DEPTH_TEST); // Hace que las superficies cercanas oculten las lejanas.
         glEnable(GL_CULL_FACE); // Descarta las caras traseras: la GPU no rasteriza lo que la cámara no puede ver.
@@ -170,7 +172,18 @@ public class Ventana {
         alto = altoReal[0]; // Copia el alto actual al estado de la aplicación.
     }
 
-    /** Muestra la imagen terminada. */
+    /** Activa o desactiva el V-Sync (tecla F4 de Juego). */
+    public void alternarVsync() {
+        vsync = !vsync; // Invierte el estado.
+        glfwSwapInterval(vsync ? 1 : 0); // 1 espera al refresco de la pantalla; 0 presenta en cuanto termina el cuadro.
+    }
+
+    /** Indica si el V-Sync está activado. */
+    public boolean vsyncActivo() {
+        return vsync;
+    }
+
+    /** Muestra la imagen terminada intercambiando los buffers. */
     public void presentar() {
         glfwSwapBuffers(ventana); // Muestra la imagen terminada intercambiando los buffers.
     }
