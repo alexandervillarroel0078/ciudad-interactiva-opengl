@@ -47,6 +47,20 @@ public class ColisionesTest extends TestCase {
         assertFalse(Colisiones.puedeCircular(Mapa.LIMITE + 10, Mapa.LIMITE + 10)); // Rechaza el campo exterior.
     }
 
+    /** La sobrecarga con radio: con el radio del auto es idéntica, y un círculo más chico se acerca más a la pared. */
+    public void testPuedeCircularConRadio() {
+        float pared = Mapa.centro(1) - Mapa.TAM_CELDA / 2; // Cara oeste de la manzana de la columna 1 (fila de la salida).
+        float z = Auto.Z_INICIAL;
+        for (float x = pared - 3; x < pared; x += 0.05f) { // Barre el acercamiento a la pared.
+            assertEquals(Colisiones.puedeCircular(x, z), Colisiones.puedeCircular(x, z, Auto.RADIO_AUTO));
+        }
+        float x = pared - 1.0f; // A 1 unidad de la pared.
+        assertFalse(Colisiones.puedeCircular(x, z)); // El auto (1.65) no cabe...
+        assertTrue(Colisiones.puedeCircular(x, z, 0.9f)); // ...la chata (0.9) sí.
+        assertEquals(0.1f, Colisiones.holgura(x, z, 0.9f), 1e-4f); // Le sobran 0.1.
+        assertTrue(Colisiones.holgura(x, z, 1.65f) < 0); // Al auto le faltan 0.65.
+    }
+
     /** Busca la primera celda de un tipo. */
     private static int[] primeraManzana(int tipo) {
         for (int fila = 0; fila < Mapa.MAPA.length; fila++) {

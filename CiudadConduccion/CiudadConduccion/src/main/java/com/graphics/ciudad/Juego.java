@@ -22,6 +22,7 @@ import com.graphics.ciudad.mundo.Mapa; // Aporta el límite de la ciudad a la c�
 import com.graphics.ciudad.trafico.Trafico; // Vehículos autónomos que recorren la ciudad.
 import com.graphics.ciudad.vehiculo.Auto; // Vehículo del jugador.
 import com.graphics.ciudad.vehiculo.Cabina; // Cabina trapezoidal extruida, compartida por el jugador y el tráfico.
+import com.graphics.ciudad.vehiculo.Chata; // Remolque del auto del jugador.
 import com.graphics.ciudad.vehiculo.Colisiones; // Manzanas y bordes; Juego le suma el tráfico para el deslizamiento.
 import com.graphics.ciudad.vehiculo.MarcasFrenado; // Huellas de goma al frenar fuerte o derrapar.
 import com.graphics.ciudad.vehiculo.IndicadorJugador; // Flecha flotante sobre el auto en la vista aérea.
@@ -63,6 +64,7 @@ public class Juego {
     private final Cielo cielo = new Cielo(); // Fondo procedural de la vista principal (shader propio).
     private final Sombras sombras = new Sombras(shader, cubo, figuras, cabina, ciudad.getEdificio()); // Manchas o sombra planar.
     private final Auto auto = new Auto(); // Vehículo del jugador; no necesita OpenGL para existir.
+    private final Chata chata = new Chata(); // Remolque enganchado al auto; tampoco necesita OpenGL.
     private final Iluminacion iluminacion = new Iluminacion(shader, figuras); // Día/noche, farolas y faros.
     private final Entregas entregas = new Entregas(shader, cubo); // Destinos, progreso y cronómetro.
     private final Minimapa minimapa = new Minimapa(shader, cubo); // Vista superior en un recuadro.
@@ -214,6 +216,7 @@ public class Juego {
     /** Reinicio de la partida (tecla R): auto en la salida, entregas y tráfico al inicio, cámara detrás del auto. */
     void reiniciar() {
         auto.reset(); // Restaura posición, velocidad y orientación del vehículo.
+        chata.reset(); // La chata vuelve recta detrás del auto.
         entregas.reset(); // Amplía el reinicio del auto: vuelve a la primera parada y al cronómetro en cero.
         trafico.reset(); // Devuelve cada vehículo autónomo al inicio de su ruta.
         marcas.vaciar(); // Sin marcas de frenado en el asfalto.
@@ -231,11 +234,16 @@ public class Juego {
         iluminacion.avanzar(deltaTime); // Transición suave día/noche: cielo, luz de la ciudad y sombras usan el mismo factor.
         // Una posición es libre si no toca manzanas ni bordes (círculo contra rectángulo) ni al tráfico (círculo contra
         // círculo). Mientras Auto prueba, getX()/getZ() siguen siendo la posición de partida del cuadro.
+        // La chata también cuenta: la posición candidata del auto (con el ángulo ya girado de este cuadro) arrastra a la
+        // chata, y si esta chocara con una manzana, un borde o un vehículo, la posición no es libre y Auto se detiene o desliza.
         Colisiones.PosicionLibre libre = (nx, nz) -> Colisiones.puedeCircular(nx, nz)
-            && !trafico.bloquea(auto.getX(), auto.getZ(), nx, nz, Auto.RADIO_AUTO);
+            && !trafico.bloquea(auto.getX(), auto.getZ(), nx, nz, Auto.RADIO_AUTO)
+            && chata.puedeMoverseA(nx, nz, auto.getAngulo())
+            && !chataChocaTrafico(nx, nz);
         auto.actualizar(deltaTime, teclado, libre, !iluminacion.esNoche()); // Aceleración, giro, colisiones y sombra solar, de día.
+        chata.actualizar(auto); // La chata sigue al auto ya movido.
         marcas.actualizar(deltaTime, auto); // Agrega o desvanece huellas (con dt 0 en pausa no cambia nada).
-        trafico.actualizar(deltaTime, auto.getX(), auto.getZ(), relojGlobal); // Mueve los vehículos; frenan ante el jugador y los semáforos.
+        trafico.actualizar(deltaTime, auto.getX(), auto.getZ(), relojGlobal, extrasChata()); // Mueve los vehículos; frenan ante el jugador, su chata y los semáforos.
         actualizarTitulo(); // Muestra los controles y la velocidad actual.
         particulas.actualizar(deltaTime); // Avanza las partículas vivas (con dt 0 en pausa no se mueven ni nacen otras).
         particulas.emitirHumo(deltaTime, auto.getX(), auto.getZ(), auto.getAngulo(), auto.getVelocidad()); // Más humo cuanto más rápido.
@@ -243,6 +251,24 @@ public class Juego {
         float[] ojo = camara.getOjo(); // Posición de la cámara del cuadro anterior.
         entregas.actualizar(deltaTime, auto); // Añade el objetivo del juego al movimiento del auto.
         camara.actualizarSeguimiento(deltaTime, auto.getX(), auto.getZ(), auto.getAngulo()); // Recorta o recupera la distancia detrás del auto.
+    }
+
+    /** Círculos de la chata como obstáculos del tráfico: {x, z, radio} por cada uno. */
+    private float[] extrasChata() {
+        float[] c = chata.circulos();
+        return new float[] {c[0], c[1], Chata.RADIO, c[2], c[3], Chata.RADIO};
+    }
+
+    /** Indica si llevar el auto a (nx, nz) metería algún círculo de la chata dentro de un vehículo del tráfico. */
+    private boolean chataChocaTrafico(float nx, float nz) {
+        float[] antes = chata.circulos(); // Círculos ahora.
+        float[] despues = Chata.circulos(chata.poseSiAutoEn(nx, nz, auto.getAngulo())); // Y en la posición candidata.
+        for (int i = 0; i < antes.length; i += 2) {
+            if (trafico.bloquea(antes[i], antes[i + 1], despues[i], despues[i + 1], Chata.RADIO)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Compone el texto de la ventana sin mezclarlo con las fórmulas de conducción. */
@@ -375,6 +401,11 @@ public class Juego {
         return particulas; // Humo y fuentes.
     }
 
+    /** Devuelve la chata del jugador. */
+    Chata getChata() {
+        return chata; // Remolque del auto.
+    }
+
     /** Devuelve el tráfico autónomo. */
     Trafico getTrafico() {
         return trafico; // Vehículos de la ciudad.
@@ -388,6 +419,7 @@ public class Juego {
         }
         Estadisticas.fijarCategoria(Estadisticas.AUTOS); // Jugador.
         auto.dibujar(cubo, figuras, shader, cabina, iluminacion.farosEncendidos()); // Añade el vehículo con ruedas que giran y sus luces; los faros siguen a la tecla F (en todas las cámaras y en el minimapa).
+        chata.dibujar(cubo, figuras, shader, auto); // Remolque: cajas y ruedas con la iluminación normal.
         if (camara.esAerea() && !minimapa.enVistaMapa()) { // Desde arriba el auto se ve chico: se marca con una flecha.
             Estadisticas.fijarCategoria(Estadisticas.OTROS); // Flecha sobre el auto.
             indicador.dibujar(auto.getX(), auto.getZ(), relojGlobal); // En la cámara de seguimiento no hace falta.
@@ -404,7 +436,7 @@ public class Juego {
             entregas.dibujarDestino(minimapa.enVistaMapa()); // Coloca la marca dorada en la parada activa.
         }
         if (!minimapa.enVistaMapa()) { // Desde arriba, en el minimapa, las manchas (o la sombra planar) solo ensuciarían el plano.
-            sombras.dibujar(auto, trafico.getVehiculos(), iluminacion.factorNoche(), iluminacion::dibujarFarolasConHuella); // AL FINAL: la mezcla necesita el suelo ya pintado.
+            sombras.dibujar(auto, chata, trafico.getVehiculos(), iluminacion.factorNoche(), iluminacion::dibujarFarolasConHuella); // AL FINAL: la mezcla necesita el suelo ya pintado.
         }
     }
 }

@@ -11,6 +11,7 @@ import com.graphics.ciudad.mundo.Mapa; // Celdas de edificio y de parque.
 import com.graphics.ciudad.mundo.Parque; // Árboles y bancos de los parques.
 import com.graphics.ciudad.trafico.Vehiculo; // Vehículos del tráfico.
 import com.graphics.ciudad.vehiculo.Auto; // Auto del jugador.
+import com.graphics.ciudad.vehiculo.Chata; // Remolque del jugador.
 import com.graphics.ciudad.vehiculo.Cabina; // Forma de la cabina: la sombra planar del auto reutiliza su dibujo real.
 import java.util.ArrayList; // Lista de sombras fijas.
 import java.util.Collections; // Publica la lista sin permitir modificarla.
@@ -216,7 +217,7 @@ public class Sombras {
      * Iluminacion.dibujarFarolasConHuella: la sombra planar la llama de nuevo para proyectar la misma geometría,
      * pasándole HUELLA_DENTRO o HUELLA_FUERA según el pase (ver dibujarPlanares).
      */
-    public void dibujar(Auto auto, List<Vehiculo> vehiculos, float factorNoche, IntConsumer dibujarFarolas) {
+    public void dibujar(Auto auto, Chata chata, List<Vehiculo> vehiculos, float factorNoche, IntConsumer dibujarFarolas) {
         // factorNoche (Iluminacion.factorNoche) es 0 de día y 1 de noche. En los extremos todo es igual que antes; en la
         // transición las sombras se desvanecen con el mismo factor que la luz: la planar baja a 0 y las manchas de lo que
         // la planar reemplaza (edificios, árboles de parque, autos) suben de 0 al valor de noche; las manchas fijas
@@ -246,6 +247,7 @@ public class Sombras {
                 shader.decimal("uAlfa", alfaNoche);
                 float y = ELEVACION_SOMBRA; // Los autos están sobre el asfalto (Y = 0).
                 mancha(auto.getX(), y, auto.getZ(), SOMBRA_AUTO[0], SOMBRA_AUTO[1], auto.getAngulo(), FORMA_REDONDA, NUCLEO_SOMBRA); // Jugador.
+                mancha(chata.getX(), y, chata.getZ(), Chata.ANCHO + 0.8f, Chata.LARGO_CAJA + 0.9f, chata.getAngulo(), FORMA_REDONDA, NUCLEO_SOMBRA); // Chata.
                 for (Vehiculo v : vehiculos) { // Tráfico.
                     mancha(v.getX(), y, v.getZ(), SOMBRA_AUTO[0], SOMBRA_AUTO[1], v.getAngulo(), FORMA_REDONDA, NUCLEO_SOMBRA); // Sigue posición y giro.
                 }
@@ -253,7 +255,7 @@ public class Sombras {
             shader.entero("uSombra", 0); // Vuelve al material normal antes de la sombra planar (otra rama del shader).
             glEnable(GL_CULL_FACE); // La sombra planar reutiliza geometría real y sí usa el culling.
             if (planarDeDia) { // De día (y en la transición), si no se desactivó con usarSombrasProyectadas (F1).
-                dibujarPlanares(auto, vehiculos, dibujarFarolas, ALFA_SOMBRA_PLANAR * (1 - factorNoche));
+                dibujarPlanares(auto, chata, vehiculos, dibujarFarolas, ALFA_SOMBRA_PLANAR * (1 - factorNoche));
             }
         } finally {
             shader.entero("uSombra", 0); // Vuelve al material normal.
@@ -293,7 +295,7 @@ public class Sombras {
      * a la porción exacta de (x, z) que le corresponde, además del propio stencil, que sigue evitando que dos copias
      * del MISMO piso se dibujen dos veces sobre el mismo píxel.
      */
-    private void dibujarPlanares(Auto auto, List<Vehiculo> vehiculos, IntConsumer dibujarFarolas, float alfa) {
+    private void dibujarPlanares(Auto auto, Chata chata, List<Vehiculo> vehiculos, IntConsumer dibujarFarolas, float alfa) {
         glEnable(GL_STENCIL_TEST); // Activa la prueba de stencil solo para esta sección.
         glStencilFunc(GL_EQUAL, 0, 0xFF); // Solo dibuja donde ninguna sombra planar pasó todavía por este píxel.
         glStencilOp(GL_KEEP, GL_KEEP, GL_INCR); // Si lo dibuja (y pasa la prueba de profundidad), lo marca para la próxima.
@@ -310,6 +312,7 @@ public class Sombras {
             dibujarFarolas.accept(HUELLA_FUERA); // Iluminacion.dibujarFarolasConHuella(): base, poste, brazo, pantalla y bombilla.
             sinHuella(); // Los autos no tienen copia de acera: se dibujan sin restricción, como siempre.
             auto.dibujar(cubo, figuras, shader, cabina, false); // Carrocería, cabina y ruedas del jugador.
+            chata.dibujar(cubo, figuras, shader, auto); // Su chata, con el mismo dibujo real.
             for (Vehiculo v : vehiculos) { // Tráfico: misma forma, sigue su posición y ángulo de este cuadro.
                 v.dibujar(cubo, figuras, shader, cabina);
             }

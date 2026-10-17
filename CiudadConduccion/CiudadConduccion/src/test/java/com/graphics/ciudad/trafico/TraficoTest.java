@@ -296,6 +296,23 @@ public class TraficoTest extends TestCase {
         assertFalse(v.frenando()); // Y sin luces de freno.
     }
 
+    /** La chata del jugador (obstáculo extra) hace frenar al vehículo igual que el auto, aunque el auto esté lejos. */
+    public void testFrenaAnteLaChata() {
+        Trafico trafico = nuevoTrafico();
+        Vehiculo v = trafico.getVehiculos().get(0);
+        float crucero = v.getVelocidad();
+        float[] chata = relativo(v, 10, 0); // Mismo carril, 10 adelante.
+        float[] extras = {chata[0], chata[1], 0.9f}; // Un círculo de la chata.
+        trafico.actualizar(DT, LEJOS, LEJOS, 0, extras); // El auto del jugador no está cerca.
+        assertTrue(v.getVelocidad() < crucero); // Frenó por la chata.
+        assertTrue(v.frenando());
+        for (int i = 0; i < 240; i++) {
+            trafico.actualizar(DT, LEJOS, LEJOS, 0, extras);
+            assertTrue(distancia(v, chata) >= Vehiculo.RADIO_VEHICULO + 0.9f - TOLERANCIA); // Nunca la toca.
+        }
+        assertTrue(v.getVelocidad() < 1); // Terminó detenido detrás de ella.
+    }
+
     /** El jugador DETRÁS, en el mismo carril: el vehículo no frena. */
     public void testDetrasNoFrena() {
         Trafico trafico = nuevoTrafico();

@@ -108,11 +108,22 @@ public class Trafico {
      * frena ante la línea de detención (Vehiculo.huecoSemaforo). El jugador no se ve afectado por los semáforos.
      */
     public void actualizar(float deltaTime, float jugadorX, float jugadorZ, float tiempo) {
+        actualizar(deltaTime, jugadorX, jugadorZ, tiempo, new float[0]); // Sin obstáculos extra.
+    }
+
+    /**
+     * Igual que la anterior, y además cada vehículo frena ante los círculos extra del jugador (su chata). extras trae
+     * {x1, z1, radio1, x2, z2, radio2, ...}; se tratan con la misma regla que el círculo del jugador.
+     */
+    public void actualizar(float deltaTime, float jugadorX, float jugadorZ, float tiempo, float[] extras) {
         int cantidad = vehiculos.size(); // Número de vehículos.
         float[] huecos = new float[cantidad]; // Hueco de cada vehículo hasta su obstáculo más cercano.
         for (int i = 0; i < cantidad; i++) { // Vehículo que decide si frena.
             Vehiculo vehiculo = vehiculos.get(i);
             float hueco = vehiculo.huecoHasta(jugadorX, jugadorZ, RADIO_JUGADOR); // El jugador, con su círculo.
+            for (int k = 0; k + 2 < extras.length; k += 3) { // Y los círculos de su chata.
+                hueco = Math.min(hueco, vehiculo.huecoHasta(extras[k], extras[k + 1], extras[k + 2]));
+            }
             for (int j = 0; j < cantidad; j++) { // Posibles obstáculos: los demás vehículos.
                 if (j != i && cede(i, j)) { // Solo frena por el otro si en ese par le toca ceder.
                     hueco = Math.min(hueco, vehiculo.huecoHastaTrayectoria(vehiculos.get(j))); // El más cercano.
