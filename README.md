@@ -12,9 +12,9 @@ Ver también la documentación de diseño en [ENTREGA.md](CiudadConduccion/Ciuda
 
 ## Entrega
 
-- 📄 Documento: [DOCUMENTO.pdf](DOCUMENTO.pdf)
-- 🎥 Video de demostración: [video.mp4](video.mp4)
-- 🖼️ Imágenes del proyecto: carpeta [imagenesProy/](imagenesProy/)
+-  Documento: [DOCUMENTO.pdf](DOCUMENTO.pdf)
+-  Video de demostración: [video.mp4](video.mp4)
+-  Imágenes del proyecto: carpeta [imagenesProy/](imagenesProy/)
 
 ## Ejecutar
 
