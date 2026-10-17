@@ -33,6 +33,10 @@ public class EntregasTest extends TestCase {
         assertFalse(entregas.quedanEntregas()); // Tras la tercera entrega la partida terminó.
         assertNull(entregas.destinoActual()); // Ya no hay destino activo.
         assertTrue(entregas.estado().contains("GANASTE")); // El título anuncia la victoria.
+        assertEquals(Entregas.DESTINOS.length, entregas.getEntregas()); // 3/3: el HUD muestra el cartel de victoria.
+        float tiempoFinal = entregas.getTiempo();
+        entregas.actualizar(5, 0, 0, 0);
+        assertEquals(tiempoFinal, entregas.getTiempo(), 0f); // El tiempo queda congelado tras ganar.
 
         entregas.reset(); // Mismo reinicio que la tecla R.
         assertEquals(0, entregas.getEntregas()); // El progreso vuelve a cero.

@@ -313,7 +313,7 @@ public class Juego {
             "H: ayuda   P: pausa" // Recordatorio de las teclas de la interfaz.
         };
         String[] lineas = base; // Sin F3 el panel queda como era.
-        if (mostrarEstadisticas) { // F3: agrega las líneas de rendimiento al final.
+        if (mostrarEstadisticas && estado.getEstado() != EstadoPartida.Estado.MENU) { // F3: rendimiento al final; no en el menú.
             lineas = Arrays.copyOf(base, base.length + 4);
             lineas[base.length] = "FPS: " + estadisticas.getFps(); // Promedio de los últimos 0.5 s.
             lineas[base.length + 1] = String.format(Locale.ROOT, "Frame: %.2f ms", estadisticas.getFrameMs()); // Promedio de la misma ventana de 0.5 s.
@@ -323,7 +323,8 @@ public class Juego {
         dibujo2D.comenzar(ancho, alto); // Desactiva la profundidad, activa la mezcla y usa el shader del HUD.
         try { // Asegura que el estado 3D se restaure aunque falle el dibujo.
             dibujarNombresSectores(ancho, alto); // Nombres de los sectores sobre el minimapa (si está visible).
-            hud.dibujar(dibujo2D, ancho, alto, lineas, estado.getEstado()); // Panel, ayuda, pausa o menú.
+            hud.dibujar(dibujo2D, ancho, alto, lineas, estado.getEstado(), !entregas.quedanEntregas(),
+                (int) entregas.getTiempo()); // Panel, ayuda, pausa, menú o victoria.
         } finally { // El próximo cuadro espera profundidad activa y sin mezcla.
             dibujo2D.terminar(); // Restaura el estado de OpenGL.
         }

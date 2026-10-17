@@ -5,7 +5,7 @@ import com.graphics.ciudad.juego.EstadoPartida; // Indica si hay que mostrar el 
 /**
  * HUD: interfaz dibujada dentro de la ventana, encima de la escena.
  * Responsable de: el panel semitransparente de estado (velocidad, faros, día/noche, entregas, destino y sector),
- * la ayuda de controles (tecla H), el cartel de PAUSA, el menú de inicio y los nombres de sectores sobre el minimapa.
+ * la ayuda de controles (tecla H), el cartel de PAUSA, el menú de inicio, el cartel de victoria y los nombres de sectores sobre el minimapa.
  * Todos los tamaños se calculan en cada cuadro a partir del ancho y alto actuales, así se adapta al redimensionar.
  * Se comunica con: Dibujo2D (rectángulos y texto), EstadoPartida (menú / pausa) y Juego (le pasa las líneas de estado,
  * las etiquetas del minimapa y la tecla H).
@@ -55,8 +55,14 @@ public class Hud {
 
     // ==================== 2. DIBUJO ====================
 
-    /** Dibuja el HUD completo; lineasEstado son los textos del panel (velocidad, faros, etc.). */
+    /** Dibuja el HUD completo sin cartel de victoria; lineasEstado son los textos del panel (velocidad, faros, etc.). */
     public void dibujar(Dibujo2D d, int ancho, int alto, String[] lineasEstado, EstadoPartida.Estado estado) {
+        dibujar(d, ancho, alto, lineasEstado, estado, false, 0);
+    }
+
+    /** Igual que el anterior; con victoria = true añade el cartel de GANASTE con el tiempo final en segundos. */
+    public void dibujar(Dibujo2D d, int ancho, int alto, String[] lineasEstado, EstadoPartida.Estado estado,
+                        boolean victoria, int segundos) {
         float escala = escala(ancho, alto); // Tamaño del texto para esta ventana.
         dibujarPanel(d, MARGEN, MARGEN, escala, lineasEstado, 1, 1, 1); // Panel de estado en la esquina superior izquierda.
         if (mostrarAyuda) { // La ayuda se dibuja solo si el usuario la pidió.
@@ -66,6 +72,12 @@ public class Hud {
         if (estado == EstadoPartida.Estado.PAUSA) { // Cartel de pausa en el centro.
             dibujarCentrado(d, ancho, alto / 2f - 20 * escala, escala * 3, "PAUSA", 1, 0.85f, 0.2f); // Texto grande.
             dibujarCentrado(d, ancho, alto / 2f + 12 * escala, escala, "P: continuar", 1, 1, 1); // Indica cómo seguir.
+        }
+        if (victoria && estado != EstadoPartida.Estado.MENU) { // Las 3 entregas completadas: mismo estilo que el menú.
+            d.rectangulo(0, 0, ancho, alto, 0.02f, 0.03f, 0.06f, ALFA_MENU); // Oscurece toda la ventana.
+            dibujarCentrado(d, ancho, alto / 2f - 45 * escala, escala * 3, "GANASTE!", 1, 0.8f, 0.15f); // Título.
+            dibujarCentrado(d, ancho, alto / 2f, escala * 1.4f, "3/3 entregas en " + segundos + " s", 1, 1, 1); // Resultado.
+            dibujarCentrado(d, ancho, alto / 2f + 25 * escala, escala, "R: jugar otra vez    ESC: salir", 0.8f, 0.85f, 0.9f); // Opciones.
         }
         if (estado == EstadoPartida.Estado.MENU) { // Menú de inicio: cubre la escena.
             d.rectangulo(0, 0, ancho, alto, 0.02f, 0.03f, 0.06f, ALFA_MENU); // Oscurece toda la ventana.

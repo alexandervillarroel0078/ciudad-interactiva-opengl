@@ -67,6 +67,23 @@ public class HudTest extends TestCase {
         }
     }
 
+    /** El cartel de victoria cubre la ventana igual que el menú, pero solo aparece al ganar y nunca en el menú. */
+    public void testCartelDeVictoria() {
+        for (int[] t : TAMANOS) {
+            Registro sin = new Registro();
+            new Hud().dibujar(sin, t[0], t[1], ESTADO, EstadoPartida.Estado.JUGANDO, false, 0);
+            Registro con = new Registro();
+            new Hud().dibujar(con, t[0], t[1], ESTADO, EstadoPartida.Estado.JUGANDO, true, 42);
+            assertEquals(sin.rectangulos.size() + 1, con.rectangulos.size());
+            float[] fondo = con.rectangulos.get(con.rectangulos.size() - 1);
+            assertEquals(t[0], fondo[2], 0f);
+            assertEquals(t[1], fondo[3], 0f);
+            Registro menu = new Registro();
+            new Hud().dibujar(menu, t[0], t[1], ESTADO, EstadoPartida.Estado.MENU, true, 42);
+            assertEquals(dibujar(t[0], t[1], false, EstadoPartida.Estado.MENU).rectangulos.size(), menu.rectangulos.size());
+        }
+    }
+
     /** Con la ayuda abierta, el panel de estado y el de ayuda no se pisan mientras la ventana mida al menos 320 px de alto. */
     public void testEstadoYAyudaNoSePisan() {
         for (int alto = 320; alto <= 1200; alto += 40) {
