@@ -2,7 +2,6 @@ package com.graphics.ciudad.motor; // Prueba el pool de partículas desde su mis
 
 import com.graphics.ciudad.mundo.Mapa; // Centros de los parques, donde están las fuentes.
 import junit.framework.TestCase; // Proporciona las comprobaciones de JUnit usadas por Maven.
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_L; // Tecla de la lluvia.
 
 /** Comprueba el pool, la vida, el vaciado y los emisores sin abrir una ventana OpenGL. */
 public class SistemaParticulasTest extends TestCase {
@@ -76,12 +75,10 @@ public class SistemaParticulasTest extends TestCase {
     /** Con dt = 0 (pausa o menú) no se mueve ni muere ninguna y los emisores no sacan nada. */
     public void testConDtCeroNoCambiaNada() {
         SistemaParticulas p = new SistemaParticulas();
-        p.tecla(GLFW_KEY_L); // Lluvia activada.
         p.emitir(SistemaParticulas.TIPO_HUMO, 0, 1, 0, 3, 0, 0, 1.0f, 1, 1, 1, 0.2f);
         p.actualizar(0);
         p.emitirHumo(0, 0, 0, 0, 16);
         p.emitirFuentes(0);
-        p.emitirLluvia(0, 0, 0);
         assertEquals(1, p.activas());
         assertEquals(1.0f, p.vida(0), 0f);
         assertEquals(0f, p.x(0), 0f);
@@ -90,21 +87,17 @@ public class SistemaParticulasTest extends TestCase {
     /** Vaciar (tecla R) deja el pool sin partículas, con los conteos en cero, y se puede volver a usar. */
     public void testVaciarAlReiniciar() {
         SistemaParticulas p = new SistemaParticulas();
-        p.tecla(GLFW_KEY_L);
         for (int i = 0; i < 20; i++) {
             p.emitirHumo(0.05f, 0, 0, 0, 10);
             p.emitirFuentes(0.05f);
-            p.emitirLluvia(0.05f, 0, 0);
         }
         assertTrue(p.activas() > 0);
         p.vaciar();
         assertEquals(0, p.activas());
         assertEquals(0, p.activas(SistemaParticulas.TIPO_HUMO));
         assertEquals(0, p.activas(SistemaParticulas.TIPO_FUENTE));
-        assertEquals(0, p.activas(SistemaParticulas.TIPO_LLUVIA));
         assertTrue(nace(p, 1)); // El pool sigue funcionando.
         assertEquals(1, p.activas());
-        assertTrue(p.lluviaActiva()); // La tecla L conserva su estado.
     }
 
     /** La tasa del humo es proporcional a la velocidad y, detenido, no sale nada. */
@@ -162,51 +155,5 @@ public class SistemaParticulasTest extends TestCase {
             p.actualizar(0.05f);
         }
         assertTrue(p.activas() < 40 * p.cantidadFuentes() * 3);
-    }
-
-    /** La lluvia empieza apagada, la tecla L la alterna, cae alrededor de la cámara y respeta su tope. */
-    public void testLluviaConTeclaYTope() {
-        SistemaParticulas p = new SistemaParticulas();
-        assertFalse(p.lluviaActiva());
-        p.emitirLluvia(1, 0, 0);
-        assertEquals(0, p.activas()); // Apagada: no llueve.
-        p.tecla(GLFW_KEY_L);
-        assertTrue(p.lluviaActiva());
-        p.emitirLluvia(0.05f, 100, -50);
-        assertTrue(p.activas(SistemaParticulas.TIPO_LLUVIA) > 0);
-        for (int i = 0; i < p.activas(); i++) {
-            assertTrue(Math.abs(p.x(i) - 100) <= 23.5f && Math.abs(p.z(i) + 50) <= 23.5f); // Alrededor de la cámara.
-            assertTrue(p.y(i) >= 20);
-        }
-        for (int i = 0; i < 100; i++) { // Mucho tiempo emitiendo sin actualizar: llega al tope y no pasa.
-            p.emitirLluvia(0.05f, 0, 0);
-        }
-        assertEquals(SistemaParticulas.MAX_LLUVIA, p.activas(SistemaParticulas.TIPO_LLUVIA));
-        p.tecla(GLFW_KEY_L);
-        assertFalse(p.lluviaActiva());
-    }
-
-    /** Las gotas de lluvia mueren al tocar el suelo, mucho antes de agotar su vida. */
-    public void testLaLluviaMuereAlTocarElSuelo() {
-        SistemaParticulas p = new SistemaParticulas();
-        p.tecla(GLFW_KEY_L);
-        p.emitirLluvia(0.05f, 0, 0);
-        assertTrue(p.activas() > 0);
-        for (int i = 0; i < 40; i++) { // 2 segundos sin nueva lluvia: caen de 22 a 0 en ≈ 1.2 s.
-            p.actualizar(0.05f);
-        }
-        assertEquals(0, p.activas());
-        assertEquals(0, p.activas(SistemaParticulas.TIPO_LLUVIA));
-    }
-
-    /** La lluvia no deja sin lugar al humo ni a las fuentes: el tope de lluvia es menor que la capacidad. */
-    public void testLaLluviaNoLlenaElPool() {
-        assertTrue(SistemaParticulas.MAX_LLUVIA < SistemaParticulas.CAPACIDAD);
-        SistemaParticulas p = new SistemaParticulas();
-        p.tecla(GLFW_KEY_L);
-        for (int i = 0; i < 200; i++) {
-            p.emitirLluvia(0.05f, 0, 0);
-        }
-        assertTrue(p.emitir(SistemaParticulas.TIPO_HUMO, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0.2f));
     }
 }

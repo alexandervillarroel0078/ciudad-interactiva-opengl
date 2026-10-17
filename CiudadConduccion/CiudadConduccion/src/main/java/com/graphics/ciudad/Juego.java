@@ -13,7 +13,7 @@ import com.graphics.ciudad.motor.Cubo; // Geometría compartida (VAO/VBO).
 import com.graphics.ciudad.motor.Estadisticas; // FPS promediados y draw calls por cuadro, para el HUD.
 import com.graphics.ciudad.motor.Figuras; // Esfera, cilindro y cono (mallas redondeadas).
 import com.graphics.ciudad.motor.Shader; // Programa GLSL y envío de uniforms.
-import com.graphics.ciudad.motor.SistemaParticulas; // Humo del auto, fuentes de los parques y lluvia.
+import com.graphics.ciudad.motor.SistemaParticulas; // Humo del auto, fuentes de los parques.
 import com.graphics.ciudad.motor.Ventana; // Ventana GLFW, teclado y presentación.
 import com.graphics.ciudad.mundo.Ciudad; // Asfalto, calles, edificios y parques.
 import com.graphics.ciudad.mundo.Decoracion; // Árboles, bancos, ventanas, pasos peatonales y semáforos.
@@ -69,7 +69,7 @@ public class Juego {
     private final IndicadorJugador indicador = new IndicadorJugador(shader, cubo); // Señala el auto desde la vista aérea.
     private final Trafico trafico = new Trafico(shader, cubo, iluminacion::esNocheVisual); // Vehículos autónomos con rutas cíclicas por las calles.
     private final MarcasFrenado marcas = new MarcasFrenado(); // Marcas de frenado y derrape sobre el asfalto.
-    private final SistemaParticulas particulas = new SistemaParticulas(); // Pool de 3000 partículas: humo, fuentes y lluvia (tecla L).
+    private final SistemaParticulas particulas = new SistemaParticulas(); // Pool de 3000 partículas: humo y fuentes.
     private final Dibujo2D dibujo2D = new Dibujo2D(); // Pase 2D final: paneles y texto sobre la escena.
     private final Hud hud = new Hud(); // Panel de estado, ayuda (H), cartel de pausa y menú de inicio.
     private final EstadoPartida estado = new EstadoPartida(); // Arranca en el menú; ENTER empieza y P pausa.
@@ -208,7 +208,6 @@ public class Juego {
         }
 
         iluminacion.tecla(key); // Amplía los controles con N y F; conserva ESC, C y R.
-        particulas.tecla(key); // Amplía las teclas con L (lluvia).
         minimapa.tecla(key); // Amplía las teclas con M; conserva salida, cámara, reinicio y luces.
     }
 
@@ -218,7 +217,7 @@ public class Juego {
         entregas.reset(); // Amplía el reinicio del auto: vuelve a la primera parada y al cronómetro en cero.
         trafico.reset(); // Devuelve cada vehículo autónomo al inicio de su ruta.
         marcas.vaciar(); // Sin marcas de frenado en el asfalto.
-        particulas.vaciar(); // Sin humo, gotas ni lluvia en el aire; la tecla L conserva su estado.
+        particulas.vaciar(); // Sin humo ni gotas en el aire.
         camara.reiniciarSeguimiento(auto.getX(), auto.getZ(), auto.getAngulo()); // Sin barrido desde donde estaba.
     }
 
@@ -242,7 +241,6 @@ public class Juego {
         particulas.emitirHumo(deltaTime, auto.getX(), auto.getZ(), auto.getAngulo(), auto.getVelocidad()); // Más humo cuanto más rápido.
         particulas.emitirFuentes(deltaTime); // Salpicaduras en cada parque.
         float[] ojo = camara.getOjo(); // Posición de la cámara del cuadro anterior.
-        particulas.emitirLluvia(deltaTime, ojo[0], ojo[2]); // Solo si la lluvia está activada.
         entregas.actualizar(deltaTime, auto); // Añade el objetivo del juego al movimiento del auto.
         camara.actualizarSeguimiento(deltaTime, auto.getX(), auto.getZ(), auto.getAngulo()); // Recorta o recupera la distancia detrás del auto.
     }
@@ -289,7 +287,7 @@ public class Juego {
         }
         Estadisticas.fijarCategoria(Estadisticas.CALLES); // Marcas de frenado sobre el asfalto.
         marcas.dibujar(camara, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto); // Huellas planas sobre el asfalto, sin escribir profundidad.
-        Estadisticas.fijarCategoria(Estadisticas.OTROS); // Humo, fuentes y lluvia.
+        Estadisticas.fijarCategoria(Estadisticas.OTROS); // Humo y fuentes.
         particulas.dibujar(camara, auto.getX(), auto.getZ(), auto.getAngulo(), ancho, alto, 1 - 0.65f * iluminacion.factorNoche()); // Billboards translúcidos, sin escribir profundidad, sobre la escena ya pintada.
         shader.usar(); // Marcas y partículas dejan activo su propio programa: vuelve el de la ciudad.
         cubo.enlazar(); // Y el cubo.
@@ -373,7 +371,7 @@ public class Juego {
 
     /** Devuelve el sistema de partículas. */
     SistemaParticulas getParticulas() {
-        return particulas; // Humo, fuentes y lluvia.
+        return particulas; // Humo y fuentes.
     }
 
     /** Devuelve el tráfico autónomo. */

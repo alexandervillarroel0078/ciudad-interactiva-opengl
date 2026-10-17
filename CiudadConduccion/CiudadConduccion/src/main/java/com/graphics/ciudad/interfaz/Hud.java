@@ -33,7 +33,7 @@ public class Hud {
         "   Shift = desplazar (aerea)",
         "   ruedita = acercar / alejar",
         "N: dia / noche     F: faros",
-        "+ / -: niebla     L: lluvia",
+        "+ / -: niebla",
         "F1 sombras F2 niebla F3 FPS F4 VSync",
         "M: minimapa        H: esta ayuda",
         "P: pausa           R: reiniciar",

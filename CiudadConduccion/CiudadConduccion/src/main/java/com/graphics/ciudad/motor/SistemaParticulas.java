@@ -4,17 +4,16 @@ import com.graphics.ciudad.mundo.Mapa; // Centros de los parques, donde están l
 import com.graphics.ciudad.mundo.Parque; // Altura del césped, para ubicar el agua y el chorro de la fuente.
 import java.util.List; // Lista de parques del mapa.
 import java.util.Random; // Azar de las partículas; con semilla fija las pruebas son repetibles.
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_L; // Tecla de la lluvia.
 import static org.lwjgl.opengl.GL33.*; // Importa las funciones OpenGL hasta la versión 3.3.
 
 /**
- * SISTEMA DE PARTÍCULAS: humo del escape, salpicaduras de las fuentes y lluvia, todo en un único POOL fijo.
+ * SISTEMA DE PARTÍCULAS: humo del escape, salpicaduras de las fuentes, todo en un único POOL fijo.
  *
  * POOL: CAPACIDAD partículas guardadas en un solo arreglo de float reservado al construir (CAMPOS float por partícula) y
  * un arreglo de tipos. Las vivas ocupan siempre las posiciones 0 .. activas-1. Al nacer una partícula se escribe en la
  * primera posición libre; al morir, la última viva se copia sobre ella (la posición queda reutilizada). Nunca se crea un
  * objeto por partícula ni por cuadro: ni al emitir, ni al actualizar, ni al dibujar. Si el pool está lleno, la emisión se
- * descarta (la lluvia además tiene su propio tope, MAX_LLUVIA, para no dejar sin lugar al humo y a las fuentes).
+ * descarta.
  * Cada partícula tiene posición, velocidad, vida, color y tamaño; todo avanza con dt (con dt = 0, en pausa, no cambia
  * nada y tampoco se emite).
  *
@@ -25,7 +24,7 @@ import static org.lwjgl.opengl.GL33.*; // Importa las funciones OpenGL hasta la 
  * bien al redimensionar la ventana. Solo se dibuja en la vista principal, no en el minimapa.
  *
  * Los emisores y el pool no usan OpenGL: se prueban sin ventana. Solo crear(), eliminar() y dibujar() lo necesitan.
- * Se comunica con: Juego (actualiza, emite, dibuja y reparte la tecla), Camara, Shader, Malla, Mapa y Parque.
+ * Se comunica con: Juego (actualiza, emite y dibuja), Camara, Shader, Malla, Mapa y Parque.
  */
 public class SistemaParticulas {
 
@@ -33,8 +32,7 @@ public class SistemaParticulas {
     public static final int CAPACIDAD = 3000; // Partículas del pool.
     public static final int TIPO_HUMO = 0; // Humo del escape del auto.
     public static final int TIPO_FUENTE = 1; // Gotas de las fuentes de los parques.
-    public static final int TIPO_LLUVIA = 2; // Gotas de la lluvia.
-    private static final int TIPOS = 3; // Cantidad de tipos.
+    private static final int TIPOS = 2; // Cantidad de tipos.
 
     private static final String SHADER_VERTICES = "/shaders/particulas.vert"; // Billboard hacia la cámara.
     private static final String SHADER_FRAGMENTOS = "/shaders/particulas.frag"; // Disco suave con transparencia.
@@ -46,7 +44,7 @@ public class SistemaParticulas {
     private static final int VIDA = 7, VIDA_TOTAL = 8; // Segundos que le quedan y con los que nació.
     private static final int R = 9, G = 10, B = 11; // Color.
     private static final int TAM = 12, CREC = 13; // Tamaño al nacer y cuánto crece por segundo.
-    private static final int ALARGO = 14, ALFA = 15; // Estiramiento vertical (la lluvia es una raya) y opacidad máxima.
+    private static final int ALARGO = 14, ALFA = 15; // Estiramiento vertical y opacidad máxima.
     private static final int CAMPOS = 16; // Float por partícula.
 
     // Humo: sale del escape (esquina trasera izquierda) y la tasa crece con la velocidad.
@@ -68,15 +66,6 @@ public class SistemaParticulas {
     private static final float GRAVEDAD = -9.8f; // Aceleración de las gotas.
     private static final int MAX_EMISIONES_POR_CUADRO = 16; // Evita ráfagas si un cuadro dura mucho.
 
-    // Lluvia: franja alrededor de la cámara.
-    public static final int MAX_LLUVIA = 1500; // Tope de gotas vivas.
-    private static final float LLUVIA_POR_SEGUNDO = 900; // Gotas nuevas por segundo.
-    private static final float LLUVIA_RADIO = 22; // Medio lado del cuadrado alrededor de la cámara.
-    private static final float LLUVIA_ALTURA = 20; // Desde donde caen.
-    private static final float LLUVIA_VELOCIDAD = 18; // Caída, unidades por segundo.
-    private static final float LLUVIA_VIENTO = 1.2f; // Inclinación leve.
-    private static final float SUELO = 0.05f; // Una gota que llega acá muere.
-
     // ==================== 2. ESTADO DEL POOL ====================
     private final float[] datos = new float[CAPACIDAD * CAMPOS]; // Todas las partículas, reservado una sola vez.
     private final int[] tipos = new int[CAPACIDAD]; // Tipo de cada partícula.
@@ -86,8 +75,6 @@ public class SistemaParticulas {
     private int activas = 0; // Partículas vivas: ocupan las posiciones 0 .. activas-1.
     private float acumuladoHumo = 0; // Parte fraccionaria de partículas pendientes de emitir, por emisor.
     private float acumuladoFuente = 0;
-    private float acumuladoLluvia = 0;
-    private boolean lluvia = false; // Interruptor de la tecla L.
 
     // ==================== 3. RECURSOS DE GPU ====================
     private final Shader shader = new Shader(); // Programa propio: particulas.vert + particulas.frag.
@@ -165,7 +152,7 @@ public class SistemaParticulas {
         return true;
     }
 
-    /** Avanza todas las partículas dt segundos; las que se quedan sin vida (o la gota de lluvia que toca el suelo) mueren. */
+    /** Avanza todas las partículas dt segundos; las que se quedan sin vida mueren. */
     public void actualizar(float dt) {
         if (dt <= 0) { // Pausa o menú: nada cambia.
             return;
@@ -177,8 +164,7 @@ public class SistemaParticulas {
             datos[base + X] += datos[base + VX] * dt;
             datos[base + Y] += datos[base + VY] * dt;
             datos[base + Z] += datos[base + VZ] * dt;
-            boolean tocaSuelo = tipos[i] == TIPO_LLUVIA && datos[base + Y] <= SUELO;
-            if (datos[base + VIDA] <= 0 || tocaSuelo) {
+            if (datos[base + VIDA] <= 0) {
                 matar(i);
             }
         }
@@ -195,7 +181,7 @@ public class SistemaParticulas {
         activas--;
     }
 
-    /** Deja el pool vacío y los emisores sin pendientes (reinicio con R); la lluvia sigue activada o no, según el jugador. */
+    /** Deja el pool vacío y los emisores sin pendientes (reinicio con R). */
     public void vaciar() {
         activas = 0;
         for (int t = 0; t < TIPOS; t++) {
@@ -203,7 +189,6 @@ public class SistemaParticulas {
         }
         acumuladoHumo = 0;
         acumuladoFuente = 0;
-        acumuladoLluvia = 0;
     }
 
     // ==================== 5. EMISORES ====================
@@ -250,30 +235,6 @@ public class SistemaParticulas {
                 emitir(TIPO_FUENTE, fuente[0], Y_CHORRO, fuente[1], (float) Math.cos(rumbo) * alcance, vy,
                     (float) Math.sin(rumbo) * alcance, GRAVEDAD, vida, 0.72f, 0.88f, 1.0f, 0.09f, 0, 1, 0.85f);
             }
-        }
-    }
-
-    /** Lluvia alrededor de la cámara (solo si está activada con la tecla L); camX y camZ son la posición del ojo. */
-    public void emitirLluvia(float dt, float camX, float camZ) {
-        if (!lluvia || dt <= 0) {
-            return;
-        }
-        acumuladoLluvia += LLUVIA_POR_SEGUNDO * dt;
-        int n = (int) acumuladoLluvia;
-        acumuladoLluvia -= n;
-        for (int k = 0; k < n && porTipo[TIPO_LLUVIA] < MAX_LLUVIA; k++) {
-            float x = camX + (azar.nextFloat() * 2 - 1) * LLUVIA_RADIO;
-            float z = camZ + (azar.nextFloat() * 2 - 1) * LLUVIA_RADIO;
-            float y = LLUVIA_ALTURA + azar.nextFloat() * 2; // Nacen a distintas alturas: no caen en filas.
-            emitir(TIPO_LLUVIA, x, y, z, LLUVIA_VIENTO, -LLUVIA_VELOCIDAD, 0.4f, 0, y / LLUVIA_VELOCIDAD + 0.1f,
-                0.70f, 0.80f, 1.0f, 0.03f, 0, 14, 0.4f);
-        }
-    }
-
-    /** Atiende la tecla L: enciende o apaga la lluvia. */
-    public void tecla(int key) {
-        if (key == GLFW_KEY_L) {
-            lluvia = !lluvia;
         }
     }
 
@@ -353,11 +314,6 @@ public class SistemaParticulas {
     /** Segundos de vida que le quedan a la partícula viva i. */
     public float vida(int i) {
         return datos[i * CAMPOS + VIDA];
-    }
-
-    /** true si la lluvia está activada. */
-    public boolean lluviaActiva() {
-        return lluvia;
     }
 
     /** Cantidad de fuentes (una por parque). */

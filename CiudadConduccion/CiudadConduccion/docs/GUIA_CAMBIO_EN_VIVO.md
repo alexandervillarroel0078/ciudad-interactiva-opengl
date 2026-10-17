@@ -61,21 +61,16 @@ Para volver atrás: `git checkout -- <archivo>`.
 - Se ve: la 4.ª parada aparece con su baliza dorada y el marcador del HUD pasa a `0/4`. Hay que llegar a menos de `RADIO_LLEGADA` (:27) = 3 y a menos de `VELOCIDAD_LLEGADA` (:28) = 1.
 
 ## 12. Cambiar una tecla (N, F, M…)
-- N (día/noche): `iluminacion/Iluminacion.java` :263 `GLFW_KEY_N`. F (faros): :272 `GLFW_KEY_F`. M (minimapa): `juego/Minimapa.java` :57 `GLFW_KEY_M`. L (lluvia): `motor/SistemaParticulas.java` :275 y el `import` de :7.
+- N (día/noche): `iluminacion/Iluminacion.java` :263 `GLFW_KEY_N`. F (faros): :272 `GLFW_KEY_F`. M (minimapa): `juego/Minimapa.java` :57 `GLFW_KEY_M`.
 - Prueba `GLFW_KEY_N` → `GLFW_KEY_B` (en Iluminacion basta con `import static GLFW.*`, ya está).
 - Se ve: B alterna día/noche y N ya no. Actualiza también el texto de `interfaz/Hud.java` `AYUDA` (:35-38) para que H muestre la tecla nueva.
 
-## 13. Cantidad de lluvia y color de las partículas
-- `motor/SistemaParticulas.java`: `LLUVIA_POR_SEGUNDO` (:73) = 900, `MAX_LLUVIA` (:72) = 1500 (el pool total `CAPACIDAD` :33 = 3000). Color: el `0.70f, 0.80f, 1.0f` de la llamada `emitir(TIPO_LLUVIA…)` (:268-269).
-- Prueba `LLUVIA_POR_SEGUNDO = 2500`, `MAX_LLUVIA = 2500` y color `1.0f, 0.2f, 0.2f` (lluvia roja). Humo: `HUMO_GRIS` (:60) = 0.55.
-- Se ve (tecla L): un aguacero más denso, con gotas del color elegido. Lluvia: `LLUVIA_VELOCIDAD` (:76) = 18 y `LLUVIA_VIENTO` (:77) = 1.2 inclinan o aceleran la caída.
-
-## 14. Color del auto del jugador
+## 13. Color del auto del jugador
 - `vehiculo/Auto.java` `COLOR_CARROCERIA` (:40) = `{0.95f, 0.24f, 0.12f}` (rojo): carrocería y cabina.
 - Prueba `{0.10f, 0.80f, 0.20f}` (verde) o `{0.1f, 0.1f, 0.1f}` (negro).
 - Se ve: el auto cambia de color al reiniciar. El indicador/halo y los NPC no se tocan; los NPC tienen su color en `Trafico.COLORES` (:41).
 
-## 15. Cambiar el tamaño del mapa y qué se rompe
+## 14. Cambiar el tamaño del mapa y qué se rompe
 - `mundo/Mapa.java` `MAPA` (:29): matriz cuadrada, de lado impar, con calles en las filas y columnas pares. En `ENTREGA.md` (sección "Mapa 13 × 13 de referencia") hay un 13 × 13 listo para pegar. Cambia las 11 filas por las 13 y arranca.
 - Se adaptan solos: límites, colisiones, cámaras, minimapa, plano lejano, salida del auto, destinos, sectores, semáforos, PARE, carteles, farolas y pasos peatonales.
 - Se rompe o hay que revisar: **`Trafico.RUTAS_CELDAS`** (si una ruta pisa una manzana, la app lanza error al arrancar), el máximo de 16 farolas/luminarias en el shader, y no poner un parque en la celda {penúltima fila, 1} (tapa la salida). Con más cruces del Centro hay más semáforos.
@@ -84,7 +79,7 @@ Para volver atrás: `git checkout -- <archivo>`.
 
 # Cómo explicar el proyecto en 2 minutos
 
-**Qué es.** Una ciudad 3D en OpenGL 3.3 (Java + LWJGL), sin motores ni librerías de matemática 3D. Se maneja un auto con WASD, hay tráfico autónomo, semáforos, día/noche, lluvia, minimapa y un juego de entregas.
+**Qué es.** Una ciudad 3D en OpenGL 3.3 (Java + LWJGL), sin motores ni librerías de matemática 3D. Se maneja un auto con WASD, hay tráfico autónomo, semáforos, día/noche, minimapa y un juego de entregas.
 
 **Arquitectura (un paquete por responsabilidad):**
 - `motor/`: ventana GLFW, shader, cubo y mallas (esfera, cilindro, cono), cámara, partículas y estadísticas. No conoce la ciudad.
