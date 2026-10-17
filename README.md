@@ -10,11 +10,19 @@ Conduce un auto para completar 3 entregas contra el reloj, con minimapa y faros 
 
 Ver también la documentación de diseño en [ENTREGA.md](CiudadConduccion/CiudadConduccion/ENTREGA.md).
 
+## Entrega
+
+- 📄 Documento: [DOCUMENTO.pdf](DOCUMENTO.pdf)
+- 🎥 Video de demostración: [video.mp4](video.mp4)
+- 🖼️ Imágenes del proyecto: carpeta [imagenesProy/](imagenesProy/)
+
 ## Ejecutar
 
 ```
-cd C:\xampp\htdocs\ProgramacionGrafica\CiudadConduccion\CiudadConduccion
+git clone https://github.com/alexandervillarroel0078/ciudad-interactiva-opengl.git
+cd ciudad-interactiva-opengl\CiudadConduccion\CiudadConduccion
 mvn compile exec:exec
+
 ```
 
 ## Controles
